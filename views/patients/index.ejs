@@ -88,7 +88,7 @@
                             <% patients.forEach(p => { %>
                                 <tr>
                                     <td class="ps-4 fw-bold">
-                                        <a href="/patients/view/<%= p.id %>" class="text-decoration-none text-primary">
+                                        <a href="/patients/view/<%= p.patient_uid %>" class="text-decoration-none text-primary">
                                             <i class="bi bi-person-vcard me-1"></i><%= p.patient_uid %>
                                         </a>
                                     </td>
@@ -99,7 +99,7 @@
                                                 <%= p.first_name.charAt(0) %><%= p.last_name.charAt(0) %>
                                             </div>
                                             <div>
-                                                <a href="/patients/view/<%= p.id %>" class="fw-semibold text-dark text-decoration-none">
+                                                <a href="/patients/view/<%= p.patient_uid %>" class="fw-semibold text-dark text-decoration-none">
                                                     <%= p.first_name %> <%= p.last_name %>
                                                 </a>
                                                 <% if (p.city) { %><br><small class="text-muted"><i class="bi bi-geo-alt me-1"></i><%= p.city %></small><% } %>
@@ -132,7 +132,7 @@
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="btn-group btn-group-sm">
-                                            <a href="/patients/view/<%= p.id %>" class="btn btn-outline-primary" title="View Profile & Medical History">
+                                            <a href="/patients/view/<%= p.patient_uid %>" class="btn btn-outline-primary" title="View Profile & Medical History">
                                                 <i class="bi bi-folder2-open me-1"></i>View
                                             </a>
                                             <a href="/patients/edit/<%= p.id %>" class="btn btn-outline-secondary" title="Edit Patient Info">
