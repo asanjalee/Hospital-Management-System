@@ -161,11 +161,15 @@ async function main() {
             ['INV-2026-0001', p1Id, 3500.00, 3500.00, 3500.00, 'Paid', 'Cash', '2026-09-10', adminId]
         );
 
+        function getSLTimestamp() {
+            return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Colombo' });
+        }
+
         // 6. Seed Audit Logs
         db.run(
-            `INSERT INTO audit_logs (user_id, action, entity, entity_id, details)
-             VALUES (?, ?, ?, ?, ?)`,
-            [adminId, 'SYSTEM_INITIALIZED', 'system', 1, 'Initial database schema and seed data created']
+            `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [adminId, 'SYSTEM_INITIALIZED', 'system', 1, 'Initial database schema and seed data created', getSLTimestamp()]
         );
 
         console.log('✅ Seed data initialized (3 Patients, Medical History, Billing record)');

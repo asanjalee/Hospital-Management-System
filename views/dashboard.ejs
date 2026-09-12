@@ -261,9 +261,17 @@
                                                 <span class="badge bg-secondary-subtle text-dark font-monospace small">
                                                     <%= log.action %>
                                                 </span>
-                                                <small class="text-muted">
-                                                    <%= new Date(log.created_at).toLocaleTimeString([], {
-                                                        hour: '2-digit' , minute: '2-digit' }) %>
+                                                <small class="text-muted font-monospace small">
+                                                    <% 
+                                                        let logTime = log.created_at;
+                                                        if (logTime) {
+                                                            let d = new Date(typeof logTime === 'string' ? logTime.replace(' ', 'T') : logTime);
+                                                            if (!isNaN(d.getTime())) {
+                                                                logTime = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                                                            }
+                                                        }
+                                                    %>
+                                                    <%= logTime %>
                                                 </small>
                                             </div>
                                             <small class="text-dark d-block fw-semibold mt-1">

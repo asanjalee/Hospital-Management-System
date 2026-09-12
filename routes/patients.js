@@ -4,15 +4,15 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const { queryAll, queryOne, execute } = require('../database/db');
+const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db');
 const { isAuthenticated, authorize } = require('../middleware/auth');
 
-// Audit log helper
+// Audit log helper (using Sri Lanka Standard Time)
 function auditLog(userId, action, entity, entityId, details, ip) {
     try {
         execute(
-            `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
-            [userId, action, entity, entityId, details, ip]
+            `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [userId, action, entity, entityId, details, ip, getSLTimestamp()]
         );
     } catch (err) {
         console.error('Audit log error:', err.message);
@@ -375,7 +375,7 @@ router.post('/edit/:id', [
                 first_name = ?, last_name = ?, date_of_birth = ?, gender = ?,
                 nic_number = ?, blood_group = ?, phone = ?, email = ?,
                 address = ?, city = ?, emergency_contact = ?, emergency_phone = ?,
-                medical_notes = ?, allergies = ?, updated_at = CURRENT_TIMESTAMP
+                medical_notes = ?, allergies = ?, updated_at = ?
              WHERE id = ?`,
             [
                 first_name.trim(), last_name.trim(), date_of_birth || null, gender,
@@ -386,6 +386,7 @@ router.post('/edit/:id', [
                 emergency_phone ? emergency_phone.trim() : null,
                 medical_notes ? medical_notes.trim() : null,
                 allergies ? allergies.trim() : null,
+                getSLTimestamp(),
                 existingPatient.id
             ]
         );
@@ -456,7 +457,7 @@ router.post('/toggle-status/:id', (req, res) => {
         const patient = queryOne('SELECT is_active, first_name, last_name FROM patients WHERE id = ?', [patientId]);
         if (patient) {
             const newStatus = patient.is_active === 1 ? 0 : 1;
-            execute('UPDATE patients SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [newStatus, patientId]);
+            execute('UPDATE patients SET is_active = ?, updated_at = ? WHERE id = ?', [newStatus, getSLTimestamp(), patientId]);
 
             const statusText = newStatus === 1 ? 'activated' : 'deactivated';
             auditLog(req.session.user.id, 'PATIENT_STATUS_CHANGED', 'patients', patientId, `Patient ${statusText}`, req.ip);
