@@ -71,11 +71,17 @@
 
                             <div class="col-md-6">
                                 <label class="form-label">NIC / Passport Number</label>
-                                <input type="text" name="nic_number" class="form-control" value="<%= patient.nic_number || '' %>">
+                                <input type="text" name="nic_number" class="form-control" placeholder="e.g. 123456789V or 198516700123"
+                                       pattern="^(\d{9}[vV]|\d{12})$"
+                                       title="9 digits followed by V (e.g., 123456789V) or 12 digits (e.g., 198516700123)"
+                                       value="<%= patient.nic_number || '' %>">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Phone Number</label>
-                                <input type="tel" name="phone" class="form-control" value="<%= patient.phone || '' %>">
+                                <input type="tel" name="phone" class="form-control" placeholder="e.g. 0719876543 or +94719876543"
+                                       pattern="^(?:\+94\s?|0)\d{2}\s?\d{7}$|^(?:\+94|0)?\d{9}$"
+                                       title="Must contain 10 digits (e.g., 0719876543 or +94719876543)"
+                                       value="<%= patient.phone || '' %>">
                             </div>
                         </div>
                     </div>
@@ -120,7 +126,10 @@
                         </div>
                         <div class="mb-0">
                             <label class="form-label">Emergency Phone</label>
-                            <input type="tel" name="emergency_phone" class="form-control" value="<%= patient.emergency_phone || '' %>">
+                            <input type="tel" name="emergency_phone" class="form-control" placeholder="e.g. 0719876543 or +94719876543"
+                                   pattern="^(?:\+94\s?|0)\d{2}\s?\d{7}$|^(?:\+94|0)?\d{9}$"
+                                   title="Must contain 10 digits (e.g., 0719876543 or +94719876543)"
+                                   value="<%= patient.emergency_phone || '' %>">
                         </div>
                     </div>
                 </div>

@@ -144,7 +144,26 @@ router.post('/add', [
     body('gender').notEmpty().withMessage('Gender is required'),
     body('date_of_birth').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid date format'),
     body('email').optional({ checkFalsy: true }).isEmail().withMessage('Invalid email address'),
-    body('phone').optional({ checkFalsy: true }).trim()
+    body('nic_number').optional({ checkFalsy: true }).trim().custom(val => {
+        if (!/^(\d{9}[vV]|\d{12})$/.test(val)) {
+            throw new Error("Invalid NIC format. Must be 9 digits followed by 'V' (e.g., 123456789V) or 12 digits (e.g., 198516700123).");
+        }
+        return true;
+    }),
+    body('phone').optional({ checkFalsy: true }).trim().custom(val => {
+        const cleaned = val.replace(/[\s-]/g, '');
+        if (!/^(?:\+94|0)\d{9}$/.test(cleaned)) {
+            throw new Error("Invalid phone number format. Must contain 10 digits (e.g., 0719876543 or +94719876543).");
+        }
+        return true;
+    }),
+    body('emergency_phone').optional({ checkFalsy: true }).trim().custom(val => {
+        const cleaned = val.replace(/[\s-]/g, '');
+        if (!/^(?:\+94|0)\d{9}$/.test(cleaned)) {
+            throw new Error("Invalid emergency phone number format. Must contain 10 digits (e.g., 0719876543 or +94719876543).");
+        }
+        return true;
+    })
 ], (req, res) => {
     const errors = validationResult(req);
 
@@ -206,7 +225,7 @@ router.post('/add', [
         auditLog(req.session.user.id, 'PATIENT_REGISTERED', 'patients', result.lastInsertRowid, `Registered ${first_name} ${last_name} (${uid})`, req.ip);
 
         req.session.successMessage = `Patient ${first_name} ${last_name} (${uid}) registered successfully!`;
-        res.redirect(`/patients/view/${result.lastInsertRowid}`);
+        res.redirect('/patients');
 
     } catch (err) {
         console.error('Add patient error:', err);
@@ -341,7 +360,27 @@ router.post('/edit/:id', [
     body('first_name').trim().notEmpty().withMessage('First Name is required'),
     body('last_name').trim().notEmpty().withMessage('Last Name is required'),
     body('gender').notEmpty().withMessage('Gender is required'),
-    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Invalid email address')
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Invalid email address'),
+    body('nic_number').optional({ checkFalsy: true }).trim().custom(val => {
+        if (!/^(\d{9}[vV]|\d{12})$/.test(val)) {
+            throw new Error("Invalid NIC format. Must be 9 digits followed by 'V' (e.g., 123456789V) or 12 digits (e.g., 198516700123).");
+        }
+        return true;
+    }),
+    body('phone').optional({ checkFalsy: true }).trim().custom(val => {
+        const cleaned = val.replace(/[\s-]/g, '');
+        if (!/^(?:\+94|0)\d{9}$/.test(cleaned)) {
+            throw new Error("Invalid phone number format. Must contain 10 digits (e.g., 0719876543 or +94719876543).");
+        }
+        return true;
+    }),
+    body('emergency_phone').optional({ checkFalsy: true }).trim().custom(val => {
+        const cleaned = val.replace(/[\s-]/g, '');
+        if (!/^(?:\+94|0)\d{9}$/.test(cleaned)) {
+            throw new Error("Invalid emergency phone number format. Must contain 10 digits (e.g., 0719876543 or +94719876543).");
+        }
+        return true;
+    })
 ], (req, res) => {
     const patientId = req.params.id;
     const errors = validationResult(req);
