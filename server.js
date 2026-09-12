@@ -3,14 +3,13 @@
 // =====================================================
 const express = require('express');
 const session = require('express-session');
+const expressLayouts = require('express-ejs-layouts');
 const path = require('path');
 const config = require('./config/config');
 const { initDatabase, closeDatabase, queryAll, queryOne } = require('./database/db');
 const { isAuthenticated } = require('./middleware/auth');
 
 const app = express();
-
-const expressLayouts = require('express-ejs-layouts');
 
 // -------------------------------------------------
 // View Engine (EJS & Layouts)
@@ -30,7 +29,7 @@ app.use(express.json());
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Session configuration (in-memory store for simplicity)
+// Session configuration
 app.use(session({
     name: 'hms.sid',
     secret: config.SESSION_SECRET,
@@ -60,6 +59,10 @@ app.use((req, res, next) => {
 const authRoutes = require('./routes/auth');
 app.use('/auth', authRoutes);
 
+// Patient Management routes
+const patientRoutes = require('./routes/patients');
+app.use('/patients', patientRoutes);
+
 // Root redirect
 app.get('/', (req, res) => {
     if (req.session && req.session.user) {
@@ -68,9 +71,10 @@ app.get('/', (req, res) => {
     res.redirect('/auth/login');
 });
 
-// Dashboard
+// -------------------------------------------------
+// Dashboard Route (Section 7 Real-time Metrics)
+// -------------------------------------------------
 app.get('/dashboard', isAuthenticated, (req, res) => {
-    // Gather dashboard statistics
     let stats = {
         totalPatients: 0,
         todayAppointments: 0,
@@ -81,8 +85,17 @@ app.get('/dashboard', isAuthenticated, (req, res) => {
     try {
         const patientCount = queryOne('SELECT COUNT(*) as count FROM patients WHERE is_active = 1');
         stats.totalPatients = patientCount ? patientCount.count : 0;
+
+        const apptCount = queryOne("SELECT COUNT(*) as count FROM appointments WHERE date(appointment_date) = date('now') AND status != 'Cancelled'");
+        stats.todayAppointments = apptCount ? apptCount.count : 0;
+
+        const revCount = queryOne("SELECT COALESCE(SUM(paid_amount), 0) as total FROM billing WHERE strftime('%Y-%m', invoice_date) = strftime('%Y-%m', 'now')");
+        stats.revenue = revCount ? Number(revCount.total).toFixed(2) : '0.00';
+
+        const labCount = queryOne("SELECT COUNT(*) as count FROM lab_requests WHERE status = 'Pending'");
+        stats.labRequests = labCount ? labCount.count : 0;
     } catch (e) {
-        // Table may not exist yet
+        console.error('Dashboard metrics error:', e.message);
     }
 
     // Get recent audit logs
@@ -93,26 +106,32 @@ app.get('/dashboard', isAuthenticated, (req, res) => {
             FROM audit_logs al
             LEFT JOIN users u ON al.user_id = u.id
             ORDER BY al.created_at DESC
-            LIMIT 10
+            LIMIT 8
         `);
-    } catch (e) {
-        // Table may not exist yet
-    }
+    } catch (e) {}
+
+    // Get recent patients
+    let recentPatients = [];
+    try {
+        recentPatients = queryAll(`
+            SELECT * FROM patients ORDER BY created_at DESC LIMIT 5
+        `);
+    } catch (e) {}
 
     res.render('dashboard', {
         title: 'Dashboard',
         activeMenu: 'dashboard',
         stats,
         recentLogs,
+        recentPatients,
         currentUser: req.session.user
     });
 });
 
 // -------------------------------------------------
-// Placeholder routes for future modules
+// Placeholder routes for remaining future modules
 // -------------------------------------------------
 const placeholderModules = [
-    { path: '/patients', title: 'Patients', menu: 'patients', icon: 'bi-people-fill' },
     { path: '/doctors', title: 'Doctors', menu: 'doctors', icon: 'bi-person-badge-fill' },
     { path: '/appointments', title: 'Appointments', menu: 'appointments', icon: 'bi-calendar-check-fill' },
     { path: '/laboratory', title: 'Laboratory', menu: 'laboratory', icon: 'bi-droplet-fill' },
@@ -134,7 +153,7 @@ placeholderModules.forEach(mod => {
 });
 
 // -------------------------------------------------
-// 404 Handler
+// 404 & Error Handlers
 // -------------------------------------------------
 app.use((req, res) => {
     res.status(404).render('errors/404', {
@@ -143,9 +162,6 @@ app.use((req, res) => {
     });
 });
 
-// -------------------------------------------------
-// Global Error Handler
-// -------------------------------------------------
 app.use((err, req, res, next) => {
     console.error('Server error:', err);
     res.status(500).render('errors/404', {
@@ -155,7 +171,7 @@ app.use((err, req, res, next) => {
 });
 
 // -------------------------------------------------
-// Initialize DB and Start Server
+// Start Server
 // -------------------------------------------------
 async function startServer() {
     try {
@@ -180,9 +196,7 @@ async function startServer() {
 
 startServer();
 
-// Graceful shutdown
 process.on('SIGINT', () => {
-    console.log('\n🔒 Shutting down gracefully...');
     closeDatabase();
     process.exit(0);
 });

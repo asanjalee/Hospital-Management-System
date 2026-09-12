@@ -1,149 +1,238 @@
-<div class="container-fluid py-4">
-    <!-- Welcome Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="welcome-card">
-                <div class="welcome-content">
-                    <h2>Welcome back, <strong><%= currentUser.full_name %></strong>! 👋</h2>
-                    <p>Here's what's happening in your hospital today.</p>
+<div class="container-fluid py-2">
+    <!-- Welcome Hero Banner -->
+    <div class="card border-0 shadow-sm mb-4 bg-primary text-white overflow-hidden"
+        style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); border-radius: 12px;">
+        <div class="card-body p-4 position-relative">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold mb-1">Welcome back, <%= currentUser ? currentUser.full_name : 'User' %>! 👋</h3>
+                    <p class="mb-0 text-white-50">Here is what is happening in your hospital today.</p>
                 </div>
-                <div class="welcome-date">
-                    <i class="bi bi-calendar3 me-2"></i>
-                    <span id="currentDate"></span>
+                <div>
+                    <span class="badge border border-white border-opacity-25 px-3 py-2 text-nowrap fw-medium"
+                        style="background: rgba(255, 255, 255, 0.18); color: #ffffff; backdrop-filter: blur(4px); font-size: 0.85rem;">
+                        <i class="bi bi-calendar-event me-2"></i>
+                        <%= new Date().toLocaleDateString('en-US', { weekday: 'long' , year: 'numeric' , month: 'long' , day: 'numeric' }) %>
+                    </span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Stats Cards -->
+    <!-- Section 7 Metrics KPI Cards Grid -->
     <div class="row g-3 mb-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card stat-patients">
-                <div class="stat-icon">
-                    <i class="bi bi-people-fill"></i>
-                </div>
-                <div class="stat-details">
-                    <h3 class="stat-number"><%= typeof stats !== 'undefined' ? stats.totalPatients : 0 %></h3>
-                    <p class="stat-label">Total Patients</p>
-                </div>
-                <div class="stat-trend up">
-                    <i class="bi bi-arrow-up-short"></i> Active
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card stat-appointments">
-                <div class="stat-icon">
-                    <i class="bi bi-calendar-check-fill"></i>
-                </div>
-                <div class="stat-details">
-                    <h3 class="stat-number"><%= typeof stats !== 'undefined' ? stats.todayAppointments : 0 %></h3>
-                    <p class="stat-label">Today's Appointments</p>
-                </div>
-                <div class="stat-trend">
-                    <i class="bi bi-clock"></i> Today
+        <!-- Metric 1: Total Patients -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="rounded-circle bg-primary-subtle text-primary p-3">
+                            <i class="bi bi-people-fill fs-4"></i>
+                        </div>
+                        <span class="badge bg-success-subtle text-success small">↑ Active</span>
+                    </div>
+                    <h3 class="fw-bold mb-0 text-dark">
+                        <%= stats ? stats.totalPatients : 0 %>
+                    </h3>
+                    <small class="text-muted">Total Patients</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <a href="/patients" class="text-decoration-none small text-primary fw-semibold">
+                            View Directory <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card stat-revenue">
-                <div class="stat-icon">
-                    <i class="bi bi-currency-dollar"></i>
-                </div>
-                <div class="stat-details">
-                    <h3 class="stat-number">Rs. <%= typeof stats !== 'undefined' ? stats.revenue : '0.00' %></h3>
-                    <p class="stat-label">Revenue Summary</p>
-                </div>
-                <div class="stat-trend up">
-                    <i class="bi bi-graph-up-arrow"></i> This Month
+        <!-- Metric 2: Today's Appointments -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="rounded-circle bg-success-subtle text-success p-3">
+                            <i class="bi bi-calendar-check-fill fs-4"></i>
+                        </div>
+                        <span class="badge bg-light text-muted small"><i class="bi bi-clock me-1"></i>Today</span>
+                    </div>
+                    <h3 class="fw-bold mb-0 text-dark">
+                        <%= stats ? stats.todayAppointments : 0 %>
+                    </h3>
+                    <small class="text-muted">Today's Appointments</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <a href="/appointments" class="text-decoration-none small text-success fw-semibold">
+                            View Schedule <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card stat-lab">
-                <div class="stat-icon">
-                    <i class="bi bi-droplet-fill"></i>
+        <!-- Metric 3: Monthly Revenue Summary -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="rounded-circle bg-warning-subtle text-warning p-3">
+                            <i class="bi bi-currency-dollar fs-4"></i>
+                        </div>
+                        <span class="badge bg-warning-subtle text-warning small">📈 This Month</span>
+                    </div>
+                    <h3 class="fw-bold mb-0 text-dark">Rs. <%= stats ? stats.revenue : '0.00' %>
+                    </h3>
+                    <small class="text-muted">Revenue Summary</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <a href="/billing" class="text-decoration-none small text-warning fw-semibold">
+                            Financial Reports <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
-                <div class="stat-details">
-                    <h3 class="stat-number"><%= typeof stats !== 'undefined' ? stats.labRequests : 0 %></h3>
-                    <p class="stat-label">Lab Requests</p>
-                </div>
-                <div class="stat-trend">
-                    <i class="bi bi-hourglass-split"></i> Pending
+            </div>
+        </div>
+
+        <!-- Metric 4: Pending Lab Requests -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-info">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="rounded-circle bg-info-subtle text-info p-3">
+                            <i class="bi bi-droplet-fill fs-4"></i>
+                        </div>
+                        <span class="badge bg-info-subtle text-info small">⏳ Pending</span>
+                    </div>
+                    <h3 class="fw-bold mb-0 text-dark">
+                        <%= stats ? stats.labRequests : 0 %>
+                    </h3>
+                    <small class="text-muted">Lab Requests</small>
+                    <div class="mt-2 pt-2 border-top">
+                        <a href="/laboratory" class="text-decoration-none small text-info fw-semibold">
+                            View Requests <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="row g-3 mb-4">
-        <div class="col-12">
-            <h5 class="section-title"><i class="bi bi-lightning-fill me-2"></i>Quick Actions</h5>
-        </div>
-        <div class="col-lg-3 col-md-6">
-            <a href="/patients/add" class="quick-action-card">
-                <i class="bi bi-person-plus-fill"></i>
-                <span>Register Patient</span>
-            </a>
-        </div>
-        <div class="col-lg-3 col-md-6">
-            <a href="/appointments/new" class="quick-action-card">
-                <i class="bi bi-calendar-plus-fill"></i>
-                <span>Book Appointment</span>
-            </a>
-        </div>
-        <div class="col-lg-3 col-md-6">
-            <a href="/billing/new" class="quick-action-card">
-                <i class="bi bi-receipt"></i>
-                <span>Generate Bill</span>
-            </a>
-        </div>
-        <div class="col-lg-3 col-md-6">
-            <a href="/laboratory/new" class="quick-action-card">
-                <i class="bi bi-clipboard2-pulse"></i>
-                <span>Lab Request</span>
-            </a>
+    <!-- Quick Actions Panel -->
+    <div class="mb-4">
+        <h6 class="fw-bold text-muted mb-3"><i class="bi bi-lightning-charge-fill text-warning me-2"></i>Quick
+            Operations</h6>
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <a href="/patients/add"
+                    class="card border-0 shadow-sm text-decoration-none text-center p-3 hover-lift h-100">
+                    <div class="card-body p-2">
+                        <div class="rounded-circle bg-primary-subtle text-primary p-3 mx-auto mb-2"
+                            style="width: 54px; height: 54px;">
+                            <i class="bi bi-person-plus-fill fs-4"></i>
+                        </div>
+                        <strong class="d-block text-dark small">Register Patient</strong>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a href="/patients"
+                    class="card border-0 shadow-sm text-decoration-none text-center p-3 hover-lift h-100">
+                    <div class="card-body p-2">
+                        <div class="rounded-circle bg-success-subtle text-success p-3 mx-auto mb-2"
+                            style="width: 54px; height: 54px;">
+                            <i class="bi bi-search fs-4"></i>
+                        </div>
+                        <strong class="d-block text-dark small">Search Patients</strong>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a href="/appointments"
+                    class="card border-0 shadow-sm text-decoration-none text-center p-3 hover-lift h-100">
+                    <div class="card-body p-2">
+                        <div class="rounded-circle bg-info-subtle text-info p-3 mx-auto mb-2"
+                            style="width: 54px; height: 54px;">
+                            <i class="bi bi-calendar-plus-fill fs-4"></i>
+                        </div>
+                        <strong class="d-block text-dark small">Book Appointment</strong>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a href="/billing"
+                    class="card border-0 shadow-sm text-decoration-none text-center p-3 hover-lift h-100">
+                    <div class="card-body p-2">
+                        <div class="rounded-circle bg-warning-subtle text-warning p-3 mx-auto mb-2"
+                            style="width: 54px; height: 54px;">
+                            <i class="bi bi-receipt-cutoff fs-4"></i>
+                        </div>
+                        <strong class="d-block text-dark small">Generate Bill</strong>
+                    </div>
+                </a>
+            </div>
         </div>
     </div>
 
-    <!-- Recent Activity Table -->
-    <div class="row g-3">
-        <div class="col-lg-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Activity</h6>
+    <!-- Main Content Tables (Recent Patients & Activity Log) -->
+    <div class="row g-4">
+        <!-- Recent Patients Preview -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-people me-2 text-primary"></i>Recently Registered
+                        Patients</h6>
+                    <a href="/patients" class="btn btn-sm btn-outline-primary rounded-pill">View All</a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead>
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Action</th>
-                                    <th>User</th>
-                                    <th>Time</th>
+                                    <th class="ps-4">UID</th>
+                                    <th>Patient Name</th>
+                                    <th>Blood Group</th>
+                                    <th>Gender</th>
+                                    <th class="text-end pe-4">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <% if (typeof recentLogs !== 'undefined' && recentLogs.length > 0) { %>
-                                    <% recentLogs.forEach(log => { %>
+                                <% if (recentPatients && recentPatients.length> 0) { %>
+                                    <% recentPatients.forEach(p=> { %>
                                         <tr>
-                                            <td>
-                                                <span class="badge bg-primary-subtle text-primary"><%= log.action %></span>
+                                            <td class="ps-4 fw-bold font-monospace text-primary">
+                                                <%= p.patient_uid %>
                                             </td>
-                                            <td><%= log.full_name || 'System' %></td>
-                                            <td><%= log.created_at %></td>
+                                            <td>
+                                                <a href="/patients/view/<%= p.id %>"
+                                                    class="text-decoration-none fw-semibold text-dark">
+                                                    <%= p.first_name %>
+                                                        <%= p.last_name %>
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <% if (p.blood_group) { %>
+                                                    <span class="badge bg-danger-subtle text-danger px-2">
+                                                        <%= p.blood_group %>
+                                                    </span>
+                                                    <% } else { %>
+                                                        <span class="text-muted small">N/A</span>
+                                                        <% } %>
+                                            </td>
+                                            <td>
+                                                <%= p.gender %>
+                                            </td>
+                                            <td class="text-end pe-4">
+                                                <a href="/patients/view/<%= p.id %>"
+                                                    class="btn btn-sm btn-light border">
+                                                    <i class="bi bi-folder2-open"></i>
+                                                </a>
+                                            </td>
                                         </tr>
-                                    <% }) %>
-                                <% } else { %>
-                                    <tr>
-                                        <td colspan="3" class="text-center text-muted py-4">
-                                            <i class="bi bi-inbox me-2"></i>No recent activity
-                                        </td>
-                                    </tr>
-                                <% } %>
+                                        <% }) %>
+                                            <% } else { %>
+                                                <tr>
+                                                    <td colspan="5" class="text-center py-4 text-muted">
+                                                        No patients registered yet. <a href="/patients/add">Register
+                                                            first patient</a>.
+                                                    </td>
+                                                </tr>
+                                                <% } %>
                             </tbody>
                         </table>
                     </div>
@@ -151,38 +240,51 @@
             </div>
         </div>
 
-        <div class="col-lg-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-white">
-                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>System Info</h6>
+        <!-- Audit Activity Stream -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-shield-check me-2 text-success"></i>System
+                        Security & Audit Activity</h6>
                 </div>
-                <div class="card-body">
-                    <ul class="list-unstyled system-info-list">
-                        <li>
-                            <span class="info-label">Your Role</span>
-                            <span class="badge bg-success"><%= currentUser.role_name %></span>
-                        </li>
-                        <li>
-                            <span class="info-label">Status</span>
-                            <span class="badge bg-success"><i class="bi bi-circle-fill me-1" style="font-size:6px"></i> Online</span>
-                        </li>
-                        <li>
-                            <span class="info-label">Version</span>
-                            <span class="text-muted">v1.0.0</span>
-                        </li>
+                <div class="card-body p-3">
+                    <ul class="list-group list-group-flush">
+                        <% if (recentLogs && recentLogs.length> 0) { %>
+                            <% recentLogs.forEach(log=> { %>
+                                <li class="list-group-item px-0 py-2 border-0">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <div class="rounded-circle bg-light p-2 mt-1">
+                                            <i class="bi bi-clock-history text-muted small"></i>
+                                        </div>
+                                        <div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-secondary-subtle text-dark font-monospace small">
+                                                    <%= log.action %>
+                                                </span>
+                                                <small class="text-muted">
+                                                    <%= new Date(log.created_at).toLocaleTimeString([], {
+                                                        hour: '2-digit' , minute: '2-digit' }) %>
+                                                </small>
+                                            </div>
+                                            <small class="text-dark d-block fw-semibold mt-1">
+                                                <%= log.full_name || 'System User' %>
+                                            </small>
+                                            <% if (log.details) { %>
+                                                <small class="text-muted d-block small">
+                                                    <%= log.details %>
+                                                </small>
+                                                <% } %>
+                                        </div>
+                                    </div>
+                                </li>
+                                <% }) %>
+                                    <% } else { %>
+                                        <li class="list-group-item text-muted text-center py-4">No audit logs recorded
+                                            yet.</li>
+                                        <% } %>
                     </ul>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-    // Display current date
-    const dateEl = document.getElementById('currentDate');
-    if (dateEl) {
-        dateEl.textContent = new Date().toLocaleDateString('en-US', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        });
-    }
-</script>
