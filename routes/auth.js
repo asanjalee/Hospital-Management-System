@@ -5,15 +5,15 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
-const { queryOne, execute } = require('../database/db');
+const { queryOne, execute, getSLTimestamp } = require('../database/db');
 const { isGuest, isAuthenticated } = require('../middleware/auth');
 
-// Helper: audit log
+// Helper: audit log with Asia/Colombo (Sri Lanka Standard Time) timestamp
 function auditLog(userId, action, entity, entityId, details, ip) {
     try {
         execute(
-            `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
-            [userId, action, entity, entityId, details, ip]
+            `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [userId, action, entity, entityId, details, ip, getSLTimestamp()]
         );
     } catch (err) {
         console.error('Audit log error:', err.message);
@@ -85,7 +85,7 @@ router.post('/login', isGuest, [
         }
 
         // Update last login
-        execute('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
+        execute('UPDATE users SET last_login = ? WHERE id = ?', [getSLTimestamp(), user.id]);
 
         // Store user in session (exclude password hash)
         req.session.user = {

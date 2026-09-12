@@ -104,6 +104,14 @@ function execute(sql, params = []) {
     return { changes, lastInsertRowid: lastId ? lastId.id : 0 };
 }
 
+/**
+ * Get current date & time formatted in Sri Lanka Standard Time (Asia/Colombo)
+ * Format: YYYY-MM-DD HH:mm:ss
+ */
+function getSLTimestamp() {
+    return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Colombo' });
+}
+
 module.exports = {
     initDatabase,
     getDatabase,
@@ -111,5 +119,6 @@ module.exports = {
     closeDatabase,
     queryAll,
     queryOne,
-    execute
+    execute,
+    getSLTimestamp
 };
