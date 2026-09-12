@@ -63,6 +63,14 @@ app.use('/auth', authRoutes);
 const patientRoutes = require('./routes/patients');
 app.use('/patients', patientRoutes);
 
+// Doctor Management routes
+const doctorRoutes = require('./routes/doctors');
+app.use('/doctors', doctorRoutes);
+
+// Appointment Management routes
+const appointmentRoutes = require('./routes/appointments');
+app.use('/appointments', appointmentRoutes);
+
 // Root redirect
 app.get('/', (req, res) => {
     if (req.session && req.session.user) {
@@ -132,8 +140,6 @@ app.get('/dashboard', isAuthenticated, (req, res) => {
 // Placeholder routes for remaining future modules
 // -------------------------------------------------
 const placeholderModules = [
-    { path: '/doctors', title: 'Doctors', menu: 'doctors', icon: 'bi-person-badge-fill' },
-    { path: '/appointments', title: 'Appointments', menu: 'appointments', icon: 'bi-calendar-check-fill' },
     { path: '/laboratory', title: 'Laboratory', menu: 'laboratory', icon: 'bi-droplet-fill' },
     { path: '/pharmacy', title: 'Pharmacy', menu: 'pharmacy', icon: 'bi-capsule' },
     { path: '/billing', title: 'Billing', menu: 'billing', icon: 'bi-receipt-cutoff' },

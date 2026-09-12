@@ -1,0 +1,141 @@
+<!-- Book Appointment Form View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/appointments" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Appointments
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Book New Consultation Appointment</h3>
+        </div>
+        <div>
+            <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm">
+                <i class="bi bi-ticket-perforated me-1"></i> <%= autoNumber %>
+            </span>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Booking Error:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <form action="/appointments/book" method="POST">
+        <input type="hidden" name="appointment_number" value="<%= autoNumber %>">
+
+        <div class="row g-4">
+            <!-- Left Column: Patient & Doctor Selection -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                            <i class="bi bi-people text-primary me-2 fs-5"></i>Patient & Specialist Selection
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+
+                        <!-- Patient Dropdown -->
+                        <div class="mb-4">
+                            <label for="patient_id" class="form-label fw-semibold text-dark">Select Registered Patient <span class="text-danger">*</span></label>
+                            <select id="patient_id" name="patient_id" class="form-select form-select-lg" required>
+                                <option value="">-- Choose Patient --</option>
+                                <% patients.forEach(p => { %>
+                                    <option value="<%= p.id %>" <%= (formData.patient_id == p.id || prePatientId == p.id) ? 'selected' : '' %>>
+                                        <%= p.patient_uid %> — <%= p.first_name %> <%= p.last_name %> (<%= p.phone || 'No Phone' %>)
+                                    </option>
+                                <% }); %>
+                            </select>
+                            <div class="form-text">Don't see the patient? <a href="/patients/add" target="_blank" class="text-primary fw-medium">Register a new patient first</a>.</div>
+                        </div>
+
+                        <!-- Doctor Dropdown -->
+                        <div class="mb-4">
+                            <label for="doctor_id" class="form-label fw-semibold text-dark">Select Specialist Doctor <span class="text-danger">*</span></label>
+                            <select id="doctor_id" name="doctor_id" class="form-select form-select-lg" required>
+                                <option value="">-- Choose Specialist Doctor --</option>
+                                <% doctors.forEach(doc => { %>
+                                    <option value="<%= doc.id %>" <%= (formData.doctor_id == doc.id || preDoctorId == doc.id) ? 'selected' : '' %>>
+                                        <%= doc.full_name %> &bull; <%= doc.specialization %> (<%= doc.department_name %> - Rs. <%= Number(doc.consultation_fee).toLocaleString('en-US', { minimumFractionDigits: 2 }) %>)
+                                    </option>
+                                <% }); %>
+                            </select>
+                            <div class="form-text">Only available doctors with active schedules are displayed.</div>
+                        </div>
+
+                        <!-- Reason for Visit -->
+                        <div class="mb-3">
+                            <label for="reason" class="form-label fw-semibold text-dark">Reason for Visit / Main Complaints</label>
+                            <textarea id="reason" name="reason" rows="3" class="form-control" placeholder="e.g. Routine blood pressure review, persistent migraine, follow-up checkup..."><%= formData.reason || '' %></textarea>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Date & Slot Selection -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                            <i class="bi bi-clock-history text-primary me-2 fs-5"></i>Date & Time Slot Selection
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+
+                        <!-- Appointment Date Picker -->
+                        <div class="mb-4">
+                            <label for="appointment_date" class="form-label fw-semibold text-dark">Appointment Date <span class="text-danger">*</span></label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-calendar-event"></i></span>
+                                <input type="date" id="appointment_date" name="appointment_date" class="form-control" value="<%= formData.appointment_date || preDate %>" required>
+                            </div>
+                        </div>
+
+                        <!-- Time Slot Selection Grid -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold text-dark mb-2">Select Time Slot <span class="text-danger">*</span></label>
+                            <% 
+                                const timeSlots = ['08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM'];
+                                const selectedTime = formData.appointment_time || preTime;
+                            %>
+                            <div class="row g-2">
+                                <% timeSlots.forEach((slot, idx) => { %>
+                                    <div class="col-6 col-sm-4">
+                                        <input type="radio" class="btn-check" name="appointment_time" id="slot_<%= idx %>" value="<%= slot %>" <%= selectedTime === slot ? 'checked' : '' %> required>
+                                        <label class="btn btn-outline-primary w-100 py-2 fw-medium text-nowrap rounded-3 text-center" for="slot_<%= idx %>">
+                                            <i class="bi bi-clock me-1"></i> <%= slot %>
+                                        </label>
+                                    </div>
+                                <% }); %>
+                            </div>
+                        </div>
+
+                        <!-- Additional Notes -->
+                        <div class="mb-4">
+                            <label for="notes" class="form-label fw-semibold text-dark">Additional Administrative Notes</label>
+                            <input type="text" id="notes" name="notes" class="form-control" placeholder="Optional notes for receptionist or medical staff..." value="<%= formData.notes || '' %>">
+                        </div>
+
+                        <!-- Submission Buttons -->
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="/appointments" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4 fw-medium">
+                                <i class="bi bi-calendar-check-fill me-1"></i> Confirm Appointment
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+</div>

@@ -1,0 +1,243 @@
+<!-- Doctor View / Profile Page -->
+<div class="container-fluid px-0">
+
+    <!-- Flash Messages -->
+    <% if (typeof success !== 'undefined' && success) { %>
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> <%= success %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> <%= error %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <% } %>
+
+    <!-- Header Navigation -->
+    <div class="mb-3">
+        <a href="/doctors" class="text-decoration-none text-muted small fw-medium">
+            <i class="bi bi-arrow-left me-1"></i> Back to Doctor Directory
+        </a>
+    </div>
+
+    <!-- Doctor Profile Card Header -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white overflow-hidden">
+        <div class="card-body p-4">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="avatar-circle bg-primary text-white fw-bold rounded-circle d-flex align-items-center justify-content-center fs-2 shadow-sm" style="width: 72px; height: 72px;">
+                        <%= doctor.full_name ? doctor.full_name.replace('Dr. ', '').charAt(0).toUpperCase() : 'D' %>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <h3 class="fw-bold mb-0 text-dark"><%= doctor.full_name %></h3>
+                            <% if (doctor.is_available === 1) { %>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 fw-semibold">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Available
+                                </span>
+                            <% } else { %>
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-3 py-1 fw-semibold">
+                                    <i class="bi bi-dash-circle-fill me-1"></i> On Leave
+                                </span>
+                            <% } %>
+                        </div>
+                        <p class="text-muted mb-1 fs-6 fw-medium">
+                            <span class="text-primary fw-semibold"><%= doctor.specialization %></span> &bull; <%= doctor.department_name %> Department
+                        </p>
+                        <div class="d-flex flex-wrap align-items-center gap-3 text-muted small">
+                            <span><i class="bi bi-door-open me-1"></i> <%= doctor.room_number || 'Room N/A' %></span>
+                            <span><i class="bi bi-cash-stack me-1"></i> Fee: <strong class="text-success">Rs. <%= Number(doctor.consultation_fee).toLocaleString('en-US', { minimumFractionDigits: 2 }) %></strong></span>
+                            <span><i class="bi bi-telephone me-1"></i> <%= doctor.user_phone || 'N/A' %></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <a href="/appointments/book?doctor_id=<%= doctor.id %>" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm rounded-3 px-3 py-2 fw-medium">
+                        <i class="bi bi-calendar-plus-fill fs-5"></i>
+                        <span>Book Appointment</span>
+                    </a>
+                    <a href="/doctors/edit/<%= doctor.id %>" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1 rounded-3 px-3 py-2 fw-medium">
+                        <i class="bi bi-pencil-square"></i>
+                        <span>Edit Profile</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doctor Metrics Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-4">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 bg-primary bg-opacity-10 text-primary p-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                        <i class="bi bi-calendar-check fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Total Bookings</div>
+                        <h4 class="fw-bold mb-0 text-dark"><%= stats.total %></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-4">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 bg-info bg-opacity-10 text-info p-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                        <i class="bi bi-clock-history fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Scheduled</div>
+                        <h4 class="fw-bold mb-0 text-info"><%= stats.scheduled %></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-4">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 bg-success bg-opacity-10 text-success p-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                        <i class="bi bi-check-all fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Completed Consultations</div>
+                        <h4 class="fw-bold mb-0 text-success"><%= stats.completed %></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs Content Card -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white">
+        <div class="card-header bg-white border-bottom p-0">
+            <ul class="nav nav-tabs card-header-tabs m-0 border-0" id="doctorTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active px-4 py-3 border-0 fw-semibold text-dark" id="appointments-tab" data-bs-toggle="tab" data-bs-target="#appointments-pane" type="button" role="tab">
+                        <i class="bi bi-calendar-event me-2 text-primary"></i>Assigned Appointments (<%= appointments.length %>)
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link px-4 py-3 border-0 fw-semibold text-dark" id="details-tab" data-bs-toggle="tab" data-bs-target="#details-pane" type="button" role="tab">
+                        <i class="bi bi-info-circle me-2 text-primary"></i>Professional & Schedule Info
+                    </button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body p-4">
+            <div class="tab-content" id="doctorTabContent">
+
+                <!-- Tab 1: Appointments -->
+                <div class="tab-pane fade show active" id="appointments-pane" role="tabpanel">
+                    <% if (appointments && appointments.length > 0) { %>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Appt #</th>
+                                        <th>Patient Name</th>
+                                        <th>Date & Time</th>
+                                        <th>Reason / Complaint</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% appointments.forEach(apt => { %>
+                                        <tr>
+                                            <td>
+                                                <a href="/appointments/view/<%= apt.id %>" class="fw-bold text-primary text-decoration-none">
+                                                    <%= apt.appointment_number %>
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <a href="/patients/view/<%= apt.patient_uid %>" class="text-dark fw-medium text-decoration-none">
+                                                    <%= apt.patient_first_name %> <%= apt.patient_last_name %>
+                                                </a>
+                                                <div class="small text-muted"><%= apt.patient_uid %></div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold text-dark"><i class="bi bi-calendar3 me-1 text-muted"></i><%= apt.appointment_date %></div>
+                                                <div class="small text-muted"><i class="bi bi-clock me-1 text-muted"></i><%= apt.appointment_time %></div>
+                                            </td>
+                                            <td><%= apt.reason || 'General Consultation' %></td>
+                                            <td>
+                                                <% if (apt.status === 'Scheduled') { %>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 fw-semibold">Scheduled</span>
+                                                <% } else if (apt.status === 'Completed') { %>
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 fw-semibold">Completed</span>
+                                                <% } else if (apt.status === 'Cancelled') { %>
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1 fw-semibold">Cancelled</span>
+                                                <% } else { %>
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 fw-semibold"><%= apt.status %></span>
+                                                <% } %>
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="/appointments/view/<%= apt.id %>" class="btn btn-sm btn-outline-primary fw-medium">View Details</a>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } else { %>
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-calendar-x display-6 mb-2 text-secondary d-block"></i>
+                            <p class="mb-0">No appointments scheduled for this doctor yet.</p>
+                        </div>
+                    <% } %>
+                </div>
+
+                <!-- Tab 2: Professional & Department Details -->
+                <div class="tab-pane fade" id="details-pane" role="tabpanel">
+                    <div class="row g-4">
+                        <div class="col-12 col-md-6">
+                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Medical Practice Details</h6>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4 text-muted">Specialization:</dt>
+                                <dd class="col-sm-8 fw-semibold text-dark"><%= doctor.specialization %></dd>
+
+                                <dt class="col-sm-4 text-muted">Qualifications:</dt>
+                                <dd class="col-sm-8 text-dark"><%= doctor.qualification || 'Not Specified' %></dd>
+
+                                <dt class="col-sm-4 text-muted">Room Number:</dt>
+                                <dd class="col-sm-8 text-dark"><%= doctor.room_number || 'Room N/A' %></dd>
+
+                                <dt class="col-sm-4 text-muted">Consultation Fee:</dt>
+                                <dd class="col-sm-8 fw-bold text-success">Rs. <%= Number(doctor.consultation_fee).toLocaleString('en-US', { minimumFractionDigits: 2 }) %></dd>
+
+                                <dt class="col-sm-4 text-muted">Weekly Schedule:</dt>
+                                <dd class="col-sm-8 text-dark"><%= doctor.availability_schedule || 'Mon - Fri (09:00 AM - 04:00 PM)' %></dd>
+                            </dl>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Department Information</h6>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4 text-muted">Department:</dt>
+                                <dd class="col-sm-8 fw-bold text-primary"><%= doctor.department_name %></dd>
+
+                                <dt class="col-sm-4 text-muted">Head of Dept:</dt>
+                                <dd class="col-sm-8 text-dark"><%= doctor.head_of_dept || 'Hospital Board' %></dd>
+
+                                <dt class="col-sm-4 text-muted">Dept Contact:</dt>
+                                <dd class="col-sm-8 text-dark"><%= doctor.dept_phone || 'Ext. 100' %></dd>
+
+                                <dt class="col-sm-4 text-muted">Doctor Email:</dt>
+                                <dd class="col-sm-8 text-dark"><%= doctor.email %></dd>
+
+                                <dt class="col-sm-4 text-muted">System Username:</dt>
+                                <dd class="col-sm-8 text-dark"><code><%= doctor.username %></code></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
