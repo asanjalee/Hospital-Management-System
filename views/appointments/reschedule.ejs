@@ -1,0 +1,123 @@
+<!-- Reschedule Appointment View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/appointments/view/<%= appointment.id %>" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Appointment Details
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Reschedule Appointment <%= appointment.appointment_number %></h3>
+        </div>
+        <div>
+            <span class="badge bg-warning-subtle text-warning-emphasis fs-6 px-3 py-2 rounded-pill shadow-sm border border-warning-subtle">
+                <i class="bi bi-clock-history me-1"></i> Rescheduling Mode
+            </span>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Reschedule Error:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <form action="/appointments/reschedule/<%= appointment.id %>" method="POST">
+        <div class="row g-4">
+            <!-- Left Column: Patient & Current Status -->
+            <div class="col-12 col-lg-5">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark">Current Booking Info</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label class="text-muted small">Patient Name:</label>
+                            <h5 class="fw-bold text-dark mb-0"><%= appointment.patient_first_name %> <%= appointment.patient_last_name %></h5>
+                            <span class="text-primary small fw-semibold"><%= appointment.patient_uid %></span>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-muted small">Current Doctor:</label>
+                            <div class="fw-semibold text-dark"><%= appointment.doctor_name %></div>
+                            <div class="small text-muted"><%= appointment.specialization %> &bull; <%= appointment.department_name %></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-muted small">Current Scheduled Date & Time:</label>
+                            <div class="fw-bold text-danger"><%= appointment.appointment_date %> at <%= appointment.appointment_time %></div>
+                        </div>
+                        <div class="p-3 bg-light rounded-3 text-muted small">
+                            <i class="bi bi-info-circle me-1 text-primary"></i> Rescheduling will update the appointment date/time and maintain all patient logs.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: New Date & Time Slot Form -->
+            <div class="col-12 col-lg-7">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark">Select New Date & Slot</h5>
+                    </div>
+                    <div class="card-body p-4">
+
+                        <!-- Select Specialist Doctor -->
+                        <div class="mb-4">
+                            <label for="doctor_id" class="form-label fw-semibold text-dark">Assigned Specialist <span class="text-danger">*</span></label>
+                            <select id="doctor_id" name="doctor_id" class="form-select" required>
+                                <% doctors.forEach(doc => { %>
+                                    <option value="<%= doc.id %>" <%= appointment.doctor_id == doc.id ? 'selected' : '' %>>
+                                        <%= doc.full_name %> &bull; <%= doc.specialization %> (<%= doc.department_name %>)
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+
+                        <!-- Select New Date -->
+                        <div class="mb-4">
+                            <label for="appointment_date" class="form-label fw-semibold text-dark">New Appointment Date <span class="text-danger">*</span></label>
+                            <input type="date" id="appointment_date" name="appointment_date" class="form-control" value="<%= appointment.appointment_date %>" required>
+                        </div>
+
+                        <!-- Select New Time Slot -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold text-dark mb-2">New Time Slot <span class="text-danger">*</span></label>
+                            <% 
+                                const timeSlots = ['08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM'];
+                            %>
+                            <div class="row g-2">
+                                <% timeSlots.forEach((slot, idx) => { %>
+                                    <div class="col-6 col-sm-4">
+                                        <input type="radio" class="btn-check" name="appointment_time" id="rslot_<%= idx %>" value="<%= slot %>" <%= appointment.appointment_time === slot ? 'checked' : '' %> required>
+                                        <label class="btn btn-outline-primary w-100 py-2 fw-medium text-nowrap rounded-3 text-center" for="rslot_<%= idx %>">
+                                            <i class="bi bi-clock me-1"></i> <%= slot %>
+                                        </label>
+                                    </div>
+                                <% }); %>
+                            </div>
+                        </div>
+
+                        <!-- Reason for Reschedule -->
+                        <div class="mb-4">
+                            <label for="reason" class="form-label fw-semibold text-dark">Reason / Notes for Rescheduling</label>
+                            <input type="text" id="reason" name="reason" class="form-control" placeholder="e.g. Patient requested schedule change..." value="<%= appointment.reason || '' %>">
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="/appointments/view/<%= appointment.id %>" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4 fw-medium">
+                                <i class="bi bi-check-circle-fill me-1"></i> Confirm Reschedule
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+</div>

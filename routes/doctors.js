@@ -1,0 +1,422 @@
+// =====================================================
+// Doctor Management Routes (CRUD + Department Assignment)
+// =====================================================
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
+const { body, validationResult } = require('express-validator');
+const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db');
+const { isAuthenticated, authorize } = require('../middleware/auth');
+
+// Audit log helper (using Sri Lanka Standard Time)
+function auditLog(userId, action, entity, entityId, details, ip) {
+    try {
+        execute(
+            `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [userId, action, entity, entityId, details, ip, getSLTimestamp()]
+        );
+    } catch (err) {
+        console.error('Audit log error:', err.message);
+    }
+}
+
+// Apply authentication & authorization guard
+router.use(isAuthenticated);
+router.use(authorize('Administrator', 'Doctor', 'Nurse', 'Receptionist'));
+
+// -------------------------------------------------
+// GET /doctors — Doctor Directory, Search & Filter
+// -------------------------------------------------
+router.get('/', (req, res) => {
+    const search = req.query.search ? req.query.search.trim() : '';
+    const departmentId = req.query.department_id || '';
+    const availability = req.query.availability || '';
+
+    let sql = `
+        SELECT doc.*, u.full_name, u.username, u.email, u.phone as user_phone, u.is_active as user_active,
+               d.department_name, d.head_of_dept,
+               (SELECT COUNT(*) FROM appointments a WHERE a.doctor_id = doc.id) as total_appointments
+        FROM doctors doc
+        JOIN users u ON doc.user_id = u.id
+        JOIN departments d ON doc.department_id = d.id
+        WHERE 1=1
+    `;
+    const params = [];
+
+    if (search) {
+        sql += ` AND (u.full_name LIKE ? OR doc.specialization LIKE ? OR doc.qualification LIKE ? OR doc.room_number LIKE ? OR d.department_name LIKE ?)`;
+        const term = `%${search}%`;
+        params.push(term, term, term, term, term);
+    }
+
+    if (departmentId) {
+        sql += ` AND doc.department_id = ?`;
+        params.push(departmentId);
+    }
+
+    if (availability !== '') {
+        sql += ` AND doc.is_available = ?`;
+        params.push(availability);
+    }
+
+    sql += ` ORDER BY u.full_name ASC`;
+
+    try {
+        const doctors = queryAll(sql, params) || [];
+        const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+
+        // Statistics
+        const totalDoctors = queryOne('SELECT COUNT(*) as cnt FROM doctors') || { cnt: 0 };
+        const availableDoctors = queryOne('SELECT COUNT(*) as cnt FROM doctors WHERE is_available = 1') || { cnt: 0 };
+
+        res.render('doctors/index', {
+            title: 'Doctor Directory',
+            activeMenu: 'doctors',
+            doctors,
+            departments,
+            search,
+            departmentId,
+            availability,
+            stats: {
+                total: totalDoctors.cnt,
+                available: availableDoctors.cnt,
+                departmentsCount: departments.length
+            },
+            currentUser: req.session.user,
+            success: req.session.successMessage || null,
+            error: req.session.errorMessage || null
+        });
+        delete req.session.successMessage;
+        delete req.session.errorMessage;
+
+    } catch (err) {
+        console.error('Doctor list error:', err);
+        res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });
+    }
+});
+
+// -------------------------------------------------
+// GET /doctors/add — Show Add Doctor Form
+// -------------------------------------------------
+router.get('/add', (req, res) => {
+    try {
+        const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+        res.render('doctors/add', {
+            title: 'Add New Doctor',
+            activeMenu: 'doctors',
+            departments,
+            errors: [],
+            formData: {},
+            currentUser: req.session.user
+        });
+    } catch (err) {
+        console.error('Add doctor view error:', err);
+        res.redirect('/doctors');
+    }
+});
+
+// -------------------------------------------------
+// POST /doctors/add — Register Doctor Account & Profile
+// -------------------------------------------------
+router.post('/add', [
+    body('full_name').trim().notEmpty().withMessage('Full Name is required'),
+    body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
+    body('email').trim().notEmpty().withMessage('Email address is required').isEmail().withMessage('Invalid email address'),
+    body('department_id').notEmpty().withMessage('Department assignment is required'),
+    body('specialization').trim().notEmpty().withMessage('Specialization is required'),
+    body('consultation_fee').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Consultation fee must be a positive number'),
+    body('phone').optional({ checkFalsy: true }).trim().custom(val => {
+        const cleaned = val.replace(/[\s-]/g, '');
+        if (!/^(?:\+94|0)\d{9}$/.test(cleaned)) {
+            throw new Error("Invalid phone number format. Must contain 10 digits (e.g., 0719876543 or +94719876543).");
+        }
+        return true;
+    })
+], async (req, res) => {
+    const errors = validationResult(req);
+    const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+
+    if (!errors.isEmpty()) {
+        return res.render('doctors/add', {
+            title: 'Add New Doctor',
+            activeMenu: 'doctors',
+            departments,
+            errors: errors.array(),
+            formData: req.body,
+            currentUser: req.session.user
+        });
+    }
+
+    const {
+        full_name, username, email, password, phone, department_id,
+        specialization, qualification, room_number, consultation_fee, availability_schedule
+    } = req.body;
+
+    try {
+        // Check username / email uniqueness
+        const existingUser = queryOne('SELECT id FROM users WHERE username = ? OR email = ?', [username.trim(), email.trim()]);
+        if (existingUser) {
+            return res.render('doctors/add', {
+                title: 'Add New Doctor',
+                activeMenu: 'doctors',
+                departments,
+                errors: [{ msg: 'A user account with this username or email already exists.' }],
+                formData: req.body,
+                currentUser: req.session.user
+            });
+        }
+
+        // Get Doctor role ID
+        const doctorRole = queryOne("SELECT id FROM roles WHERE role_name = 'Doctor'");
+        const roleId = doctorRole ? doctorRole.id : 2;
+
+        // Hash password (default: 'doctor123' if empty)
+        const plainPassword = password && password.trim() ? password.trim() : 'doctor123';
+        const passwordHash = bcrypt.hashSync(plainPassword, 10);
+
+        // 1. Create User Account
+        const userResult = execute(
+            `INSERT INTO users (username, email, password_hash, full_name, role_id, department_id, phone, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+            [username.trim(), email.trim(), passwordHash, full_name.trim(), roleId, department_id, phone ? phone.trim() : null]
+        );
+
+        const newUserId = userResult.lastInsertRowid;
+
+        // 2. Create Doctor Profile
+        const docResult = execute(
+            `INSERT INTO doctors (user_id, department_id, specialization, qualification, room_number, consultation_fee, availability_schedule, is_available)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+            [
+                newUserId, department_id, specialization.trim(),
+                qualification ? qualification.trim() : null,
+                room_number ? room_number.trim() : null,
+                consultation_fee ? parseFloat(consultation_fee) : 0.00,
+                availability_schedule ? availability_schedule.trim() : 'Mon - Fri (09:00 AM - 04:00 PM)'
+            ]
+        );
+
+        auditLog(req.session.user.id, 'DOCTOR_ADDED', 'doctors', docResult.lastInsertRowid, `Registered doctor ${full_name} (${specialization})`, req.ip);
+
+        req.session.successMessage = `Doctor ${full_name} added successfully!`;
+        res.redirect(`/doctors/view/${docResult.lastInsertRowid}`);
+
+    } catch (err) {
+        console.error('Add doctor error:', err);
+        res.render('doctors/add', {
+            title: 'Add New Doctor',
+            activeMenu: 'doctors',
+            departments,
+            errors: [{ msg: 'An unexpected database error occurred. Please try again.' }],
+            formData: req.body,
+            currentUser: req.session.user
+        });
+    }
+});
+
+// -------------------------------------------------
+// GET /doctors/view/:id — View Doctor Profile & Appointments
+// -------------------------------------------------
+router.get('/view/:id', (req, res) => {
+    const docId = req.params.id;
+
+    try {
+        const doctor = queryOne(`
+            SELECT doc.*, u.full_name, u.username, u.email, u.phone as user_phone, u.is_active as user_active,
+                   d.department_name, d.head_of_dept, d.phone as dept_phone
+            FROM doctors doc
+            JOIN users u ON doc.user_id = u.id
+            JOIN departments d ON doc.department_id = d.id
+            WHERE doc.id = ? OR doc.user_id = ?
+        `, [docId, docId]);
+
+        if (!doctor) {
+            req.session.errorMessage = `Doctor record "#${docId}" not found.`;
+            return res.redirect('/doctors');
+        }
+
+        // Fetch appointments for this doctor
+        const appointments = queryAll(`
+            SELECT a.*, p.patient_uid, p.first_name as patient_first_name, p.last_name as patient_last_name, p.phone as patient_phone, p.gender
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            WHERE a.doctor_id = ?
+            ORDER BY a.appointment_date DESC, a.appointment_time ASC
+        `, [doctor.id]) || [];
+
+        // Stats
+        const totalAppts = appointments.length;
+        const completedAppts = appointments.filter(a => a.status === 'Completed').length;
+        const scheduledAppts = appointments.filter(a => a.status === 'Scheduled').length;
+
+        res.render('doctors/view', {
+            title: `Doctor Profile - ${doctor.full_name}`,
+            activeMenu: 'doctors',
+            doctor,
+            appointments,
+            stats: {
+                total: totalAppts,
+                completed: completedAppts,
+                scheduled: scheduledAppts
+            },
+            currentUser: req.session.user,
+            success: req.session.successMessage || null,
+            error: req.session.errorMessage || null
+        });
+        delete req.session.successMessage;
+        delete req.session.errorMessage;
+
+    } catch (err) {
+        console.error('View doctor error:', err);
+        req.session.errorMessage = `Could not retrieve details for doctor.`;
+        res.redirect('/doctors');
+    }
+});
+
+// -------------------------------------------------
+// GET /doctors/edit/:id — Show Edit Doctor Form
+// -------------------------------------------------
+router.get('/edit/:id', (req, res) => {
+    const docId = req.params.id;
+
+    try {
+        const doctor = queryOne(`
+            SELECT doc.*, u.full_name, u.email, u.phone as user_phone
+            FROM doctors doc
+            JOIN users u ON doc.user_id = u.id
+            WHERE doc.id = ?
+        `, [docId]);
+
+        if (!doctor) {
+            req.session.errorMessage = 'Doctor not found.';
+            return res.redirect('/doctors');
+        }
+
+        const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+
+        res.render('doctors/edit', {
+            title: `Edit Doctor - ${doctor.full_name}`,
+            activeMenu: 'doctors',
+            doctor,
+            departments,
+            errors: [],
+            currentUser: req.session.user
+        });
+
+    } catch (err) {
+        console.error('Edit doctor fetch error:', err);
+        res.redirect('/doctors');
+    }
+});
+
+// -------------------------------------------------
+// POST /doctors/edit/:id — Update Doctor Profile
+// -------------------------------------------------
+router.post('/edit/:id', [
+    body('full_name').trim().notEmpty().withMessage('Full Name is required'),
+    body('email').trim().notEmpty().withMessage('Email address is required').isEmail().withMessage('Invalid email address'),
+    body('department_id').notEmpty().withMessage('Department assignment is required'),
+    body('specialization').trim().notEmpty().withMessage('Specialization is required'),
+    body('consultation_fee').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Consultation fee must be a positive number'),
+    body('phone').optional({ checkFalsy: true }).trim().custom(val => {
+        const cleaned = val.replace(/[\s-]/g, '');
+        if (!/^(?:\+94|0)\d{9}$/.test(cleaned)) {
+            throw new Error("Invalid phone number format. Must contain 10 digits (e.g., 0719876543 or +94719876543).");
+        }
+        return true;
+    })
+], (req, res) => {
+    const docId = req.params.id;
+    const errors = validationResult(req);
+    const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+
+    if (!errors.isEmpty()) {
+        const doctor = { ...req.body, id: docId };
+        return res.render('doctors/edit', {
+            title: 'Edit Doctor',
+            activeMenu: 'doctors',
+            doctor,
+            departments,
+            errors: errors.array(),
+            currentUser: req.session.user
+        });
+    }
+
+    const {
+        full_name, email, phone, department_id,
+        specialization, qualification, room_number, consultation_fee, availability_schedule
+    } = req.body;
+
+    try {
+        const existingDoc = queryOne('SELECT id, user_id FROM doctors WHERE id = ?', [docId]);
+        if (!existingDoc) {
+            req.session.errorMessage = 'Doctor record not found.';
+            return res.redirect('/doctors');
+        }
+
+        // Update User info
+        execute(
+            `UPDATE users SET full_name = ?, email = ?, phone = ?, department_id = ?, updated_at = ? WHERE id = ?`,
+            [full_name.trim(), email.trim(), phone ? phone.trim() : null, department_id, getSLTimestamp(), existingDoc.user_id]
+        );
+
+        // Update Doctor profile
+        execute(
+            `UPDATE doctors SET
+                department_id = ?, specialization = ?, qualification = ?,
+                room_number = ?, consultation_fee = ?, availability_schedule = ?
+             WHERE id = ?`,
+            [
+                department_id, specialization.trim(),
+                qualification ? qualification.trim() : null,
+                room_number ? room_number.trim() : null,
+                consultation_fee ? parseFloat(consultation_fee) : 0.00,
+                availability_schedule ? availability_schedule.trim() : null,
+                existingDoc.id
+            ]
+        );
+
+        auditLog(req.session.user.id, 'DOCTOR_UPDATED', 'doctors', existingDoc.id, `Updated doctor ${full_name}`, req.ip);
+
+        req.session.successMessage = `Doctor profile for ${full_name} updated successfully.`;
+        res.redirect(`/doctors/view/${existingDoc.id}`);
+
+    } catch (err) {
+        console.error('Update doctor error:', err);
+        req.session.errorMessage = 'An error occurred while updating doctor details.';
+        res.redirect('/doctors');
+    }
+});
+
+// -------------------------------------------------
+// POST /doctors/toggle-availability/:id — Toggle Doctor Status
+// -------------------------------------------------
+router.post('/toggle-availability/:id', (req, res) => {
+    const docId = req.params.id;
+
+    try {
+        const doc = queryOne(`
+            SELECT d.id, d.is_available, u.full_name
+            FROM doctors d
+            JOIN users u ON d.user_id = u.id
+            WHERE d.id = ?
+        `, [docId]);
+
+        if (doc) {
+            const newStatus = doc.is_available === 1 ? 0 : 1;
+            execute('UPDATE doctors SET is_available = ? WHERE id = ?', [newStatus, docId]);
+
+            const statusText = newStatus === 1 ? 'Available' : 'Unavailable/On-Leave';
+            auditLog(req.session.user.id, 'DOCTOR_AVAILABILITY_CHANGED', 'doctors', docId, `Status set to ${statusText}`, req.ip);
+
+            req.session.successMessage = `${doc.full_name} availability updated to ${statusText}.`;
+        }
+        res.redirect('/doctors');
+
+    } catch (err) {
+        console.error('Toggle doctor availability error:', err);
+        res.redirect('/doctors');
+    }
+});
+
+module.exports = router;

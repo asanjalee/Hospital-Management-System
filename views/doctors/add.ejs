@@ -1,0 +1,144 @@
+<!-- Add Doctor Form View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/doctors" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Doctor Directory
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Register New Specialist</h3>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following validation errors:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <form action="/doctors/add" method="POST" novalidate>
+        <div class="row g-4">
+            <!-- Left Column: User Credentials & Basic Info -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                            <i class="bi bi-person-lock text-primary me-2 fs-5"></i>Account Credentials
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label for="full_name" class="form-label fw-semibold text-dark">Full Name <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-person"></i></span>
+                                <input type="text" id="full_name" name="full_name" class="form-control" placeholder="e.g. Dr. Alexander Smith" value="<%= formData.full_name || '' %>" required>
+                            </div>
+                            <div class="form-text">Include full title and name</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="username" class="form-label fw-semibold text-dark">Username <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-at"></i></span>
+                                <input type="text" id="username" name="username" class="form-control" placeholder="e.g. dr.smith" value="<%= formData.username || '' %>" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label fw-semibold text-dark">Email Address <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope"></i></span>
+                                <input type="email" id="email" name="email" class="form-control" placeholder="e.g. smith@hospital.com" value="<%= formData.email || '' %>" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="phone" class="form-label fw-semibold text-dark">Contact Phone Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-telephone"></i></span>
+                                <input type="tel" id="phone" name="phone" class="form-control" placeholder="e.g. 0771234567 or +94771234567" value="<%= formData.phone || '' %>">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label fw-semibold text-dark">Initial Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-key"></i></span>
+                                <input type="password" id="password" name="password" class="form-control" placeholder="Leave empty for default (doctor123)">
+                            </div>
+                            <div class="form-text text-muted">Default login password is <code>doctor123</code> if left blank.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Professional Details & Department Assignment -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                            <i class="bi bi-briefcase text-primary me-2 fs-5"></i>Professional Assignment
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label for="department_id" class="form-label fw-semibold text-dark">Department <span class="text-danger">*</span></label>
+                            <select id="department_id" name="department_id" class="form-select" required>
+                                <option value="">-- Select Department --</option>
+                                <% departments.forEach(dept => { %>
+                                    <option value="<%= dept.id %>" <%= formData.department_id == dept.id ? 'selected' : '' %>>
+                                        <%= dept.department_name %>
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="specialization" class="form-label fw-semibold text-dark">Specialization <span class="text-danger">*</span></label>
+                            <input type="text" id="specialization" name="specialization" class="form-control" placeholder="e.g. Cardiologist, Neurologist, Pediatrician" value="<%= formData.specialization || '' %>" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="qualification" class="form-label fw-semibold text-dark">Qualifications</label>
+                            <input type="text" id="qualification" name="qualification" class="form-control" placeholder="e.g. MBBS, MD (Cardiology), FRCP" value="<%= formData.qualification || '' %>">
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-sm-6">
+                                <label for="room_number" class="form-label fw-semibold text-dark">Room / Clinic Number</label>
+                                <input type="text" id="room_number" name="room_number" class="form-control" placeholder="e.g. Room 204" value="<%= formData.room_number || '' %>">
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <label for="consultation_fee" class="form-label fw-semibold text-dark">Consultation Fee (LKR)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light text-muted">Rs.</span>
+                                    <input type="number" step="0.01" min="0" id="consultation_fee" name="consultation_fee" class="form-control" placeholder="3500.00" value="<%= formData.consultation_fee || '' %>">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="availability_schedule" class="form-label fw-semibold text-dark">Availability Schedule</label>
+                            <input type="text" id="availability_schedule" name="availability_schedule" class="form-control" placeholder="e.g. Mon - Fri (09:00 AM - 04:00 PM)" value="<%= formData.availability_schedule || 'Mon - Fri (09:00 AM - 04:00 PM)' %>">
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="/doctors" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4 fw-medium">
+                                <i class="bi bi-check-lg me-1"></i> Register Doctor
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+</div>
