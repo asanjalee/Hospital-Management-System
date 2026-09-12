@@ -225,7 +225,7 @@ router.post('/add', [
         auditLog(req.session.user.id, 'PATIENT_REGISTERED', 'patients', result.lastInsertRowid, `Registered ${first_name} ${last_name} (${uid})`, req.ip);
 
         req.session.successMessage = `Patient ${first_name} ${last_name} (${uid}) registered successfully!`;
-        res.redirect('/patients');
+        res.redirect(`/patients/view/${uid}`);
 
     } catch (err) {
         console.error('Add patient error:', err);
@@ -247,40 +247,44 @@ router.get('/view/:id', (req, res) => {
     const patientId = req.params.id;
 
     try {
+        // Query patient by patient_uid or numeric ID
         const patient = queryOne(`
             SELECT p.*, u.full_name as registered_by_name
             FROM patients p
             LEFT JOIN users u ON p.registered_by = u.id
-            WHERE p.id = ?
-        `, [patientId]);
+            WHERE p.patient_uid = ? OR p.id = ?
+        `, [patientId, patientId]);
 
+        // Guard against missing patient records
         if (!patient) {
-            req.session.errorMessage = 'Patient not found.';
+            req.session.errorMessage = `Patient record "${patientId}" not found.`;
             return res.redirect('/patients');
         }
 
-        // Calculate age
+        // Calculate patient age from date of birth
         let age = 'N/A';
         if (patient.date_of_birth) {
             const dob = new Date(patient.date_of_birth);
             const diff = Date.now() - dob.getTime();
-            const ageDate = new Date(diff);
-            age = Math.abs(ageDate.getUTCFullYear() - 1970);
+            if (!isNaN(diff)) {
+                const ageDate = new Date(diff);
+                age = Math.abs(ageDate.getUTCFullYear() - 1970);
+            }
         }
         patient.age = age;
 
-        // Fetch Medical History Records
+        // Fetch Medical History Records using numeric primary key ID
         const medicalRecords = queryAll(`
-            SELECT mh.*, u.full_name as doctor_name, d.specialization
+            SELECT mh.*, u.full_name as doctor_name, doc.specialization
             FROM medical_history mh
             LEFT JOIN doctors doc ON mh.doctor_id = doc.id
             LEFT JOIN users u ON doc.user_id = u.id
             LEFT JOIN departments d ON doc.department_id = d.id
             WHERE mh.patient_id = ?
             ORDER BY mh.visit_date DESC, mh.created_at DESC
-        `, [patientId]);
+        `, [patient.id]) || [];
 
-        // Fetch Appointments History
+        // Fetch Appointments History using numeric primary key ID
         const appointments = queryAll(`
             SELECT a.*, u.full_name as doctor_name, dep.department_name
             FROM appointments a
@@ -289,20 +293,20 @@ router.get('/view/:id', (req, res) => {
             LEFT JOIN departments dep ON doc.department_id = dep.id
             WHERE a.patient_id = ?
             ORDER BY a.appointment_date DESC
-        `, [patientId]);
+        `, [patient.id]) || [];
 
-        // Fetch Billing History
+        // Fetch Billing History using numeric primary key ID
         const invoices = queryAll(`
             SELECT * FROM billing WHERE patient_id = ? ORDER BY invoice_date DESC
-        `, [patientId]);
+        `, [patient.id]) || [];
 
-        // Fetch Doctors list for new record dropdown
+        // Fetch available Doctors for new clinical record modal
         const doctors = queryAll(`
             SELECT doc.id, u.full_name, doc.specialization
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
             WHERE doc.is_available = 1
-        `);
+        `) || [];
 
         res.render('patients/view', {
             title: `Patient - ${patient.first_name} ${patient.last_name}`,
@@ -321,7 +325,8 @@ router.get('/view/:id', (req, res) => {
 
     } catch (err) {
         console.error('View patient error:', err);
-        res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });
+        req.session.errorMessage = `Could not retrieve details for patient "${patientId}".`;
+        res.redirect('/patients');
     }
 });
 
@@ -332,7 +337,7 @@ router.get('/edit/:id', (req, res) => {
     const patientId = req.params.id;
 
     try {
-        const patient = queryOne('SELECT * FROM patients WHERE id = ?', [patientId]);
+        const patient = queryOne('SELECT * FROM patients WHERE patient_uid = ? OR id = ?', [patientId, patientId]);
 
         if (!patient) {
             req.session.errorMessage = 'Patient not found.';
@@ -403,7 +408,7 @@ router.post('/edit/:id', [
     } = req.body;
 
     try {
-        const existingPatient = queryOne('SELECT id FROM patients WHERE id = ?', [patientId]);
+        const existingPatient = queryOne('SELECT id, patient_uid FROM patients WHERE patient_uid = ? OR id = ?', [patientId, patientId]);
         if (!existingPatient) {
             req.session.errorMessage = 'Patient record not found.';
             return res.redirect('/patients');
@@ -433,7 +438,7 @@ router.post('/edit/:id', [
         auditLog(req.session.user.id, 'PATIENT_UPDATED', 'patients', existingPatient.id, `Updated ${first_name} ${last_name}`, req.ip);
 
         req.session.successMessage = `Patient information for ${first_name} ${last_name} updated successfully.`;
-        res.redirect('/patients');
+        res.redirect(`/patients/view/${existingPatient.patient_uid}`);
 
     } catch (err) {
         console.error('Update patient error:', err);
@@ -476,13 +481,18 @@ router.post('/medical-history/add', [
 
         auditLog(req.session.user.id, 'MEDICAL_RECORD_ADDED', 'patients', patient_id, `Added medical record: ${diagnosis}`, req.ip);
 
+        const pObj = queryOne('SELECT patient_uid FROM patients WHERE id = ? OR patient_uid = ?', [patient_id, patient_id]);
+        const redirectUid = pObj ? pObj.patient_uid : patient_id;
+
         req.session.successMessage = 'New medical record added successfully.';
-        res.redirect(`/patients/view/${patient_id}`);
+        res.redirect(`/patients/view/${redirectUid}`);
 
     } catch (err) {
         console.error('Add medical history error:', err);
         req.session.errorMessage = 'Failed to add medical record.';
-        res.redirect(`/patients/view/${patient_id}`);
+        const pObj = queryOne('SELECT patient_uid FROM patients WHERE id = ? OR patient_uid = ?', [patient_id, patient_id]);
+        const redirectUid = pObj ? pObj.patient_uid : patient_id;
+        res.redirect(`/patients/view/${redirectUid}`);
     }
 });
 
