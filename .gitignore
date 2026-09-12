@@ -1,0 +1,7 @@
+node_modules/
+data/
+.env
+*.db
+.DS_Store
+Thumbs.db
+Hospital_system.pdf
