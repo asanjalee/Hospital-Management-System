@@ -43,11 +43,19 @@ app.use(session({
     }
 }));
 
-// Make app config available to all views
+// Make app config and flash messages available to all views
 app.use((req, res, next) => {
     res.locals.appName = config.APP_NAME;
     res.locals.appShortName = config.APP_SHORT_NAME;
     res.locals.currentUser = req.session.user || null;
+
+    // Flash message management - extract to locals and clear from session
+    // so they are consumed once and don't persist globally.
+    res.locals.success = req.session.successMessage || null;
+    res.locals.error = req.session.errorMessage || null;
+    delete req.session.successMessage;
+    delete req.session.errorMessage;
+
     next();
 });
 

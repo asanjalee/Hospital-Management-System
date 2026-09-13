@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
         params.push(doctorId);
     }
 
-    sql += ` ORDER BY mh.visit_date DESC, mh.id DESC`;
+    sql += ` ORDER BY mh.id DESC`;
 
     try {
         const records = await queryAll(sql, params) || [];
@@ -85,13 +85,8 @@ router.get('/', async (req, res) => {
             patientId,
             doctorId,
             stats,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('EMR directory error:', err);
         res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });
@@ -253,13 +248,8 @@ router.get('/view/:id', async (req, res) => {
             title: `Medical Record #${record.id}`,
             activeMenu: 'emr',
             record,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('View EMR record error:', err);
         req.session.errorMessage = 'Could not retrieve medical record.';

@@ -26,10 +26,8 @@ async function auditLog(userId, action, entity, entityId, details, ip) {
 router.get('/login', isGuest, (req, res) => {
     res.render('auth/login', {
         title: 'Login',
-        error: null,
-        success: req.session.successMessage || null
+        error: null
     });
-    delete req.session.successMessage;
 });
 
 // -------------------------------------------------

@@ -28,8 +28,9 @@ async function generateInvoiceNumber() {
 }
 
 // Apply authentication & authorization guard
+// PER SPEC: Billing access = Administrator, Accountant, Receptionist (read-only)
 router.use(isAuthenticated);
-router.use(authorize('Administrator', 'Cashier', 'Receptionist', 'Accountant'));
+router.use(authorize('Administrator', 'Accountant', 'Receptionist'));
 
 // -------------------------------------------------
 // GET /billing — Invoice Directory & Financial Dashboard
@@ -60,7 +61,7 @@ router.get('/', async (req, res) => {
         params.push(status);
     }
 
-    sql += ` ORDER BY b.invoice_date DESC, b.id DESC`;
+    sql += ` ORDER BY b.id DESC`;
 
     try {
         const invoices = await queryAll(sql, params) || [];
@@ -79,13 +80,8 @@ router.get('/', async (req, res) => {
             search,
             status,
             stats,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('Billing directory error:', err);
         res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });
@@ -292,13 +288,8 @@ router.get('/invoice/:id', async (req, res) => {
             activeMenu: 'billing',
             invoice,
             items,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('View invoice error:', err);
         res.redirect('/billing');

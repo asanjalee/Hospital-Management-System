@@ -76,7 +76,7 @@ router.get('/', async (req, res) => {
         params.push(selectedDate);
     }
 
-    sql += ` ORDER BY a.appointment_date DESC, a.appointment_time ASC`;
+    sql += ` ORDER BY a.id DESC`;
 
     try {
         const appointments = await queryAll(sql, params) || [];
@@ -115,13 +115,8 @@ router.get('/', async (req, res) => {
             selectedDate,
             todayStr,
             stats,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('Appointment list error:', err);
         res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });
@@ -317,13 +312,8 @@ router.get('/view/:id', async (req, res) => {
             activeMenu: 'appointments',
             appointment,
             medicalRecords,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('View appointment error:', err);
         req.session.errorMessage = `Could not retrieve appointment details.`;
