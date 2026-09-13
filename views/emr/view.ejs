@@ -1,0 +1,188 @@
+<!-- View EMR Record Screen -->
+<div class="container-fluid px-0">
+
+    <!-- Flash Messages (Hidden during print) -->
+    <% if (typeof success !== 'undefined' && success) { %>
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4 d-print-none" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> <%= success %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4 d-print-none" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> <%= error %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <% } %>
+
+    <!-- Header Navigation (Hidden during print) -->
+    <div class="d-flex align-items-center justify-content-between mb-4 d-print-none flex-wrap gap-2">
+        <div>
+            <a href="/emr" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to EMR Directory
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Clinical Examination Record #EMR-<%= record.id.toString().padStart(4, '0') %></h3>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="form-check form-switch bg-white border px-3 py-2 rounded-3 shadow-sm mb-0">
+                <input class="form-check-input ms-0 me-2" type="checkbox" id="toggleSignatureEMR" checked onchange="document.querySelectorAll('.signature-block').forEach(el => el.style.display = this.checked ? 'flex' : 'none')">
+                <label class="form-check-label small fw-semibold text-dark" for="toggleSignatureEMR">
+                    <i class="bi bi-pen me-1 text-primary"></i> Include Signature Lines
+                </label>
+            </div>
+            <button onclick="window.print()" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1 shadow-sm rounded-3">
+                <i class="bi bi-printer-fill me-1"></i> Print Case Sheet
+            </button>
+            <a href="/emr/edit/<%= record.id %>" class="btn btn-primary d-inline-flex align-items-center gap-1 shadow-sm rounded-3">
+                <i class="bi bi-pencil-square me-1"></i> Edit Entry
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Printable Clinical Case Sheet -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white mb-4" id="printableCaseSheet">
+        <!-- Header Ribbon -->
+        <div class="card-header bg-primary bg-gradient text-white p-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <span class="badge bg-white text-primary px-3 py-1 rounded-pill mb-2 fw-bold">Official Medical Record</span>
+                    <h4 class="fw-bold mb-0 text-white"><%= record.diagnosis %></h4>
+                    <p class="mb-0 text-white-50 small">Examined on <strong><%= record.visit_date %></strong></p>
+                </div>
+                <div class="text-md-end">
+                    <div class="fs-5 fw-bold text-white"><%= record.patient_first_name %> <%= record.patient_last_name %></div>
+                    <div class="text-white-50"><i class="bi bi-card-text me-1"></i><%= record.patient_uid %></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body p-4 p-md-5">
+
+            <!-- Context Details Grid -->
+            <div class="row g-4 mb-4 p-3 bg-light rounded-3">
+                <div class="col-12 col-md-4">
+                    <div class="small text-muted mb-1 text-uppercase fw-semibold">Patient Details:</div>
+                    <div class="fw-bold text-dark"><%= record.patient_first_name %> <%= record.patient_last_name %></div>
+                    <div class="small text-muted"><%= record.patient_gender %> &bull; DOB: <%= record.date_of_birth || 'N/A' %></div>
+                    <div class="small text-muted">Allergies: <span class="badge bg-danger-subtle text-danger"><%= record.allergies || 'None Reported' %></span></div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="small text-muted mb-1 text-uppercase fw-semibold">Attending Specialist:</div>
+                    <div class="fw-bold text-dark"><%= record.doctor_name || 'Hospital Staff' %></div>
+                    <div class="small text-muted"><%= record.specialization %> (<%= record.department_name %>)</div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="small text-muted mb-1 text-uppercase fw-semibold">Consultation Metadata:</div>
+                    <div class="small text-dark"><strong>Visit Date:</strong> <%= record.visit_date %></div>
+                    <% if (record.appointment_number) { %>
+                        <div class="small text-dark"><strong>Appt #:</strong> <%= record.appointment_number %></div>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Vitals Summary Bar -->
+            <div class="mb-4">
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-activity text-danger me-2"></i>Recorded Vital Signs</h6>
+                <div class="row g-3 text-center">
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <small class="text-muted d-block mb-1">Blood Pressure</small>
+                            <span class="fs-5 fw-bold text-dark"><%= record.vitals_bp || 'N/A' %></span>
+                            <small class="text-muted d-block">mmHg</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <small class="text-muted d-block mb-1">Pulse Rate</small>
+                            <span class="fs-5 fw-bold text-dark"><%= record.vitals_pulse ? record.vitals_pulse + ' BPM' : 'N/A' %></span>
+                            <small class="text-muted d-block">Beats/min</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <small class="text-muted d-block mb-1">Temperature</small>
+                            <span class="fs-5 fw-bold text-dark"><%= record.vitals_temp ? record.vitals_temp + ' °F' : 'N/A' %></span>
+                            <small class="text-muted d-block">Fahrenheit</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <small class="text-muted d-block mb-1">Body Weight</small>
+                            <span class="fs-5 fw-bold text-dark"><%= record.vitals_weight ? record.vitals_weight + ' kg' : 'N/A' %></span>
+                            <small class="text-muted d-block">Kilograms</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clinical Sections -->
+            <div class="mb-4">
+                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-file-earmark-text text-primary me-2"></i>Presenting Symptoms & Clinical Findings</h6>
+                <div class="p-3 bg-light rounded-3 border text-dark">
+                    <%= record.symptoms %>
+                </div>
+            </div>
+
+            <% if (record.treatment_plan) { %>
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-heart-pulse text-success me-2"></i>Treatment & Management Plan</h6>
+                    <div class="p-3 bg-light rounded-3 border text-dark">
+                        <%= record.treatment_plan %>
+                    </div>
+                </div>
+            <% } %>
+
+            <% if (record.prescription) { %>
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-capsule text-warning-emphasis me-2"></i>Prescription Rx</h6>
+                    <div class="p-3 bg-white rounded-3 border border-success border-2 font-monospace text-dark">
+                        <pre class="mb-0" style="font-family: inherit; font-size: 14px; white-space: pre-wrap;"><%= record.prescription %></pre>
+                    </div>
+                </div>
+            <% } %>
+
+            <% if (record.doctor_notes) { %>
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-journal-check text-info me-2"></i>Doctor Clinical Notes</h6>
+                    <div class="p-3 bg-light rounded-3 border text-muted">
+                        <%= record.doctor_notes %>
+                    </div>
+                </div>
+            <% } %>
+
+            <!-- System Digital Verification Watermark -->
+            <div class="p-3 bg-light rounded-3 border text-center text-muted small mb-4">
+                <i class="bi bi-shield-check text-success me-1"></i> Official Electronic Health Record &bull; Generated by St. George EMR System &bull; Valid Without Physical Signature
+            </div>
+
+            <!-- Optional Physical Signatures & Stamp Block -->
+            <div class="row pt-4 mt-2 text-center signature-block">
+                <div class="col-6">
+                    <div class="border-top pt-2 mx-auto" style="max-width: 220px;">
+                        <div class="small fw-bold text-dark">Attending Medical Specialist</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="border-top pt-2 mx-auto" style="max-width: 220px;">
+                        <div class="small fw-bold text-dark">Hospital Medical Superintendent</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Action Links (Hidden during print) -->
+            <div class="d-flex flex-wrap gap-2 pt-3 border-top d-print-none">
+                <a href="/laboratory/request?patient_id=<%= record.patient_id %>&doctor_id=<%= record.doctor_id %>" class="btn btn-outline-primary rounded-3">
+                    <i class="bi bi-eyedropper me-1"></i> Request Lab Test
+                </a>
+                <a href="/billing/create?patient_id=<%= record.patient_id %>" class="btn btn-outline-success rounded-3">
+                    <i class="bi bi-receipt me-1"></i> Generate Invoice
+                </a>
+                <a href="/pharmacy" class="btn btn-outline-warning text-dark rounded-3">
+                    <i class="bi bi-box-seam me-1"></i> Check Pharmacy Inventory
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+</div>

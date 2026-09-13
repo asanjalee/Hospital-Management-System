@@ -1,0 +1,87 @@
+<!-- Edit Medicine View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/pharmacy" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Pharmacy Inventory
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Edit Medicine - <%= medicine.name %></h3>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following validation errors:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <div class="card border-0 shadow-sm rounded-3 bg-white">
+        <div class="card-header bg-white border-bottom p-3">
+            <h5 class="fw-bold mb-0 text-dark">Update Medicine Details & Stock Levels</h5>
+        </div>
+        <div class="card-body p-4">
+            <form action="/pharmacy/edit/<%= medicine.id %>" method="POST" novalidate>
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-semibold text-dark">Medicine Code</label>
+                        <input type="text" class="form-control font-monospace fw-bold bg-light" value="<%= medicine.medicine_code %>" readonly>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="name" class="form-label fw-semibold text-dark">Brand / Medicine Name <span class="text-danger">*</span></label>
+                        <input type="text" id="name" name="name" class="form-control" value="<%= medicine.name || '' %>" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="generic_name" class="form-label fw-semibold text-dark">Generic Name</label>
+                        <input type="text" id="generic_name" name="generic_name" class="form-control" value="<%= medicine.generic_name || '' %>">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-4">
+                        <label for="category" class="form-label fw-semibold text-dark">Category / Class</label>
+                        <input type="text" id="category" name="category" class="form-control" value="<%= medicine.category || '' %>">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="unit_price" class="form-label fw-semibold text-dark">Unit Selling Price (LKR) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" id="unit_price" name="unit_price" class="form-control" value="<%= medicine.unit_price || '' %>" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="manufacturer" class="form-label fw-semibold text-dark">Manufacturer</label>
+                        <input type="text" id="manufacturer" name="manufacturer" class="form-control" value="<%= medicine.manufacturer || '' %>">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-12 col-md-4">
+                        <label for="stock_quantity" class="form-label fw-semibold text-dark">In-Stock Quantity <span class="text-danger">*</span></label>
+                        <input type="number" id="stock_quantity" name="stock_quantity" class="form-control form-control-lg fw-bold" value="<%= medicine.stock_quantity %>" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="reorder_level" class="form-label fw-semibold text-dark">Reorder Level Threshold</label>
+                        <input type="number" id="reorder_level" name="reorder_level" class="form-control" value="<%= medicine.reorder_level || 10 %>">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="expiry_date" class="form-label fw-semibold text-dark">Batch Expiry Date</label>
+                        <input type="date" id="expiry_date" name="expiry_date" class="form-control" value="<%= medicine.expiry_date || '' %>">
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a href="/pharmacy" class="btn btn-outline-secondary px-4">Cancel</a>
+                    <button type="submit" class="btn btn-primary px-4 fw-medium">
+                        <i class="bi bi-save me-1"></i> Save Medicine Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>

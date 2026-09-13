@@ -186,25 +186,79 @@ async function main() {
             ]
         );
 
-        // 6. Seed Sample Billing Invoices
+        // 6. Seed Sample Pharmacy Medicines
+        const sampleMedicines = [
+            { code: 'MED-001', name: 'Paracetamol 500mg', generic: 'Acetaminophen', cat: 'Analgesics', price: 15.00, qty: 250, reorder: 50, exp: '2027-12-31', mfg: 'Cipla Pharma' },
+            { code: 'MED-002', name: 'Amoxicillin 500mg', generic: 'Amoxicillin Trihydrate', cat: 'Antibiotics', price: 45.00, qty: 120, reorder: 30, exp: '2026-11-30', mfg: 'State Pharmaceuticals' },
+            { code: 'MED-003', name: 'Amlodipine 5mg', generic: 'Amlodipine Besylate', cat: 'Cardiovascular', price: 25.00, qty: 180, reorder: 40, exp: '2028-05-15', mfg: 'Pfizer Ltd' },
+            { code: 'MED-004', name: 'Metformin 500mg', generic: 'Metformin Hydrochloride', cat: 'Antidiabetic', price: 20.00, qty: 15, reorder: 25, exp: '2026-10-15', mfg: 'GlaxoSmithKline' },
+            { code: 'MED-005', name: 'Omeprazole 20mg', generic: 'Omeprazole', cat: 'Gastrointestinal', price: 35.00, qty: 8, reorder: 20, exp: '2026-09-30', mfg: 'AstraZeneca' }
+        ];
+
+        sampleMedicines.forEach(med => {
+            db.run(
+                `INSERT INTO medicines (medicine_code, name, generic_name, category, unit_price, stock_quantity, reorder_level, expiry_date, manufacturer)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [med.code, med.name, med.generic, med.cat, med.price, med.qty, med.reorder, med.exp, med.mfg]
+            );
+        });
+
+        // 7. Seed Sample Laboratory Requests
         db.run(
-            `INSERT INTO billing (invoice_number, patient_id, total_amount, net_amount, paid_amount, payment_status, payment_method, invoice_date, created_by)
+            `INSERT INTO lab_requests (request_number, patient_id, doctor_id, test_name, test_category, status, result_summary, remarks, requested_date, completed_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ['LAB-2026-0001', p1Id, createdDoctorIds[0], 'Full Blood Count (FBC)', 'Hematology', 'Completed', 'WBC: 6.5 x10^9/L, Hemoglobin: 14.2 g/dL, Platelets: 250 x10^9/L. All parameters normal.', 'No urgent action required.', '2026-09-10', '2026-09-10']
+        );
+        db.run(
+            `INSERT INTO lab_requests (request_number, patient_id, doctor_id, test_name, test_category, status, result_summary, remarks, requested_date)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            ['INV-2026-0001', p1Id, 3500.00, 3500.00, 3500.00, 'Paid', 'Cash', '2026-09-10', adminId]
+            ['LAB-2026-0002', p2Id, createdDoctorIds[1], 'Fast Blood Sugar (FBS) & Lipid Profile', 'Biochemistry', 'Pending', null, 'Patient must fast 10-12 hours prior', todayStr]
+        );
+
+        // 8. Seed Sample Billing Invoices & Items
+        db.run(
+            `INSERT INTO billing (invoice_number, patient_id, appointment_id, total_amount, discount_amount, net_amount, paid_amount, payment_status, payment_method, invoice_date, notes, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ['INV-2026-0001', p1Id, 1, 5500.00, 500.00, 5000.00, 5000.00, 'Paid', 'Cash', '2026-09-10', 'Fully paid consultation and lab test', adminId]
+        );
+        const inv1Id = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+
+        db.run(
+            `INSERT INTO billing_items (billing_id, item_type, description, quantity, unit_price, amount)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [inv1Id, 'Consultation', 'Doctor Consultation - Dr. Alexander Smith', 1, 3500.00, 3500.00]
+        );
+        db.run(
+            `INSERT INTO billing_items (billing_id, item_type, description, quantity, unit_price, amount)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [inv1Id, 'Lab Test', 'Full Blood Count (FBC)', 1, 2000.00, 2000.00]
+        );
+
+        db.run(
+            `INSERT INTO billing (invoice_number, patient_id, appointment_id, total_amount, discount_amount, net_amount, paid_amount, payment_status, payment_method, invoice_date, notes, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ['INV-2026-0002', p2Id, 2, 4000.00, 0.00, 4000.00, 0.00, 'Unpaid', null, todayStr, 'Pending consultation payment', adminId]
+        );
+        const inv2Id = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+
+        db.run(
+            `INSERT INTO billing_items (billing_id, item_type, description, quantity, unit_price, amount)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [inv2Id, 'Consultation', 'Doctor Consultation - Dr. Sarah Jenkins', 1, 4000.00, 4000.00]
         );
 
         function getSLTimestamp() {
             return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Colombo' });
         }
 
-        // 7. Seed Audit Logs
+        // 9. Seed Audit Logs
         db.run(
             `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at)
              VALUES (?, ?, ?, ?, ?, ?)`,
             [adminId, 'SYSTEM_INITIALIZED', 'system', 1, 'Initial database schema and seed data created', getSLTimestamp()]
         );
 
-        console.log('✅ Seed data initialized (3 Patients, 3 Doctors, 3 Appointments, Medical History, Billing record)');
+        console.log('✅ Seed data initialized (Patients, Doctors, Appointments, Medical History, Medicines, Lab Requests, Billing Invoices)');
     } else {
         console.log('ℹ️  Database already seeded\n');
     }

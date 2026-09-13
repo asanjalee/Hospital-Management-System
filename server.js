@@ -71,6 +71,22 @@ app.use('/doctors', doctorRoutes);
 const appointmentRoutes = require('./routes/appointments');
 app.use('/appointments', appointmentRoutes);
 
+// EMR Management routes
+const emrRoutes = require('./routes/emr');
+app.use('/emr', emrRoutes);
+
+// Laboratory Management routes
+const labRoutes = require('./routes/laboratory');
+app.use('/laboratory', labRoutes);
+
+// Pharmacy Management routes
+const pharmacyRoutes = require('./routes/pharmacy');
+app.use('/pharmacy', pharmacyRoutes);
+
+// Billing Management routes
+const billingRoutes = require('./routes/billing');
+app.use('/billing', billingRoutes);
+
 // Root redirect
 app.get('/', (req, res) => {
     if (req.session && req.session.user) {
@@ -140,9 +156,6 @@ app.get('/dashboard', isAuthenticated, (req, res) => {
 // Placeholder routes for remaining future modules
 // -------------------------------------------------
 const placeholderModules = [
-    { path: '/laboratory', title: 'Laboratory', menu: 'laboratory', icon: 'bi-droplet-fill' },
-    { path: '/pharmacy', title: 'Pharmacy', menu: 'pharmacy', icon: 'bi-capsule' },
-    { path: '/billing', title: 'Billing', menu: 'billing', icon: 'bi-receipt-cutoff' },
     { path: '/staff', title: 'Staff Management', menu: 'staff', icon: 'bi-person-gear' },
     { path: '/reports', title: 'Reports', menu: 'reports', icon: 'bi-bar-chart-line-fill' }
 ];

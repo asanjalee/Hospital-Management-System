@@ -1,0 +1,172 @@
+<!-- Add EMR Medical Record View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/emr" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to EMR Directory
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Log Clinical Examination & Diagnosis</h3>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following validation errors:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <form action="/emr/add" method="POST" novalidate>
+        <div class="row g-4">
+            <!-- Left Column: Patient, Doctor & Vitals -->
+            <div class="col-12 col-lg-5">
+                <div class="card border-0 shadow-sm rounded-3 bg-white mb-4">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                            <i class="bi bi-person-fill text-primary me-2 fs-5"></i>Patient & Consultation Context
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- Patient Dropdown -->
+                        <div class="mb-3">
+                            <label for="patient_id" class="form-label fw-semibold text-dark">Select Patient <span class="text-danger">*</span></label>
+                            <select id="patient_id" name="patient_id" class="form-select form-select-lg" required>
+                                <option value="">-- Choose Patient --</option>
+                                <% patients.forEach(p => { %>
+                                    <option value="<%= p.id %>" <%= (formData.patient_id == p.id || prePatientId == p.id) ? 'selected' : '' %>>
+                                        <%= p.patient_uid %> — <%= p.first_name %> <%= p.last_name %>
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+
+                        <!-- Attending Specialist -->
+                        <div class="mb-3">
+                            <label for="doctor_id" class="form-label fw-semibold text-dark">Attending Doctor / Specialist</label>
+                            <select id="doctor_id" name="doctor_id" class="form-select">
+                                <option value="">-- Choose Specialist --</option>
+                                <% doctors.forEach(doc => { %>
+                                    <option value="<%= doc.id %>" <%= formData.doctor_id == doc.id ? 'selected' : '' %>>
+                                        <%= doc.full_name %> (<%= doc.specialization %>)
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+
+                        <!-- Linked Appointment (Optional) -->
+                        <div class="mb-3">
+                            <label for="appointment_id" class="form-label fw-semibold text-dark">Link Scheduled Appointment</label>
+                            <select id="appointment_id" name="appointment_id" class="form-select">
+                                <option value="">-- Optional Linked Appointment --</option>
+                                <% appointments.forEach(apt => { %>
+                                    <option value="<%= apt.id %>" <%= (formData.appointment_id == apt.id || preAppointmentId == apt.id) ? 'selected' : '' %>>
+                                        <%= apt.appointment_number %> &bull; <%= apt.patient_uid %> (<%= apt.appointment_date %>)
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+
+                        <!-- Visit Date -->
+                        <div class="mb-3">
+                            <label for="visit_date" class="form-label fw-semibold text-dark">Visit Date <span class="text-danger">*</span></label>
+                            <input type="date" id="visit_date" name="visit_date" class="form-control" value="<%= formData.visit_date || todayStr %>" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Patient Vital Signs Card -->
+                <div class="card border-0 shadow-sm rounded-3 bg-white">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                            <i class="bi bi-activity text-danger me-2 fs-5"></i>Patient Vital Signs
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label for="vitals_bp" class="form-label fw-semibold text-dark">Blood Pressure</label>
+                                <input type="text" id="vitals_bp" name="vitals_bp" class="form-control" placeholder="e.g. 120/80" value="<%= formData.vitals_bp || '' %>">
+                                <div class="form-text">mmHg</div>
+                            </div>
+                            <div class="col-6">
+                                <label for="vitals_pulse" class="form-label fw-semibold text-dark">Pulse Rate</label>
+                                <input type="number" id="vitals_pulse" name="vitals_pulse" class="form-control" placeholder="72" value="<%= formData.vitals_pulse || '' %>">
+                                <div class="form-text">BPM</div>
+                            </div>
+                            <div class="col-6">
+                                <label for="vitals_temp" class="form-label fw-semibold text-dark">Temperature</label>
+                                <input type="number" step="0.1" id="vitals_temp" name="vitals_temp" class="form-control" placeholder="98.6" value="<%= formData.vitals_temp || '' %>">
+                                <div class="form-text">°F</div>
+                            </div>
+                            <div class="col-6">
+                                <label for="vitals_weight" class="form-label fw-semibold text-dark">Body Weight</label>
+                                <input type="number" step="0.1" id="vitals_weight" name="vitals_weight" class="form-control" placeholder="70.5" value="<%= formData.vitals_weight || '' %>">
+                                <div class="form-text">kg</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Clinical Details, Treatment & Prescription -->
+            <div class="col-12 col-lg-7">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                            <i class="bi bi-clipboard-pulse text-primary me-2 fs-5"></i>Diagnosis & Treatment Plan
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+
+                        <!-- Diagnosis -->
+                        <div class="mb-4">
+                            <label for="diagnosis" class="form-label fw-semibold text-dark">Clinical Diagnosis <span class="text-danger">*</span></label>
+                            <input type="text" id="diagnosis" name="diagnosis" class="form-control form-control-lg" placeholder="e.g. Primary Essential Hypertension, Acute Bronchitis" value="<%= formData.diagnosis || '' %>" required>
+                        </div>
+
+                        <!-- Symptoms -->
+                        <div class="mb-4">
+                            <label for="symptoms" class="form-label fw-semibold text-dark">Presenting Symptoms & Clinical Findings <span class="text-danger">*</span></label>
+                            <textarea id="symptoms" name="symptoms" rows="3" class="form-control" placeholder="Describe symptoms reported by patient during examination..." required><%= formData.symptoms || '' %></textarea>
+                        </div>
+
+                        <!-- Treatment Plan -->
+                        <div class="mb-4">
+                            <label for="treatment_plan" class="form-label fw-semibold text-dark">Treatment & Care Plan</label>
+                            <textarea id="treatment_plan" name="treatment_plan" rows="3" class="form-control" placeholder="Outline therapeutic interventions, dietary changes, follow-up schedule..."><%= formData.treatment_plan || '' %></textarea>
+                        </div>
+
+                        <!-- Prescription -->
+                        <div class="mb-4">
+                            <label for="prescription" class="form-label fw-semibold text-dark">Medication Prescription</label>
+                            <textarea id="prescription" name="prescription" rows="4" class="form-control font-monospace" placeholder="1. Paracetamol 500mg - 2 tab 8 hourly (after meals)&#10;2. Amoxicillin 500mg - 1 capsule 12 hourly (5 days)"><%= formData.prescription || '' %></textarea>
+                            <div class="form-text">List dosage, frequency, and duration for pharmacy fulfillment.</div>
+                        </div>
+
+                        <!-- Doctor Notes -->
+                        <div class="mb-4">
+                            <label for="doctor_notes" class="form-label fw-semibold text-dark">Confidential Clinical Notes</label>
+                            <textarea id="doctor_notes" name="doctor_notes" rows="2" class="form-control" placeholder="Additional doctor comments or laboratory test recommendations..."><%= formData.doctor_notes || '' %></textarea>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="/emr" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4 fw-medium">
+                                <i class="bi bi-check-circle-fill me-1"></i> Save Medical Record
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+</div>
