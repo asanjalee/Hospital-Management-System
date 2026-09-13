@@ -290,8 +290,8 @@
                                         <tr>
                                             <td class="ps-4 fw-bold"><%= inv.invoice_number %></td>
                                             <td><%= inv.invoice_date %></td>
-                                            <td class="fw-bold">Rs. <%= Number(inv.net_amount).toFixed(2) %></td>
-                                            <td class="text-success">Rs. <%= Number(inv.paid_amount).toFixed(2) %></td>
+                                            <td class="fw-bold">Rs. <%= Number(inv.net_amount || 0).toFixed(2) %></td>
+                                            <td class="text-success">Rs. <%= Number(inv.paid_amount || 0).toFixed(2) %></td>
                                             <td>
                                                 <span class="badge <%= inv.payment_status === 'Paid' ? 'bg-success' : 'bg-warning text-dark' %> px-2 py-1">
                                                     <%= inv.payment_status %>

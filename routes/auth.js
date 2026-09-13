@@ -1,5 +1,5 @@
 // =====================================================
-// Authentication Routes — Login, Logout, Password
+// Authentication Routes — Login, Logout, Password (MySQL Async)
 // =====================================================
 const express = require('express');
 const router = express.Router();
@@ -9,9 +9,9 @@ const { queryOne, execute, getSLTimestamp } = require('../database/db');
 const { isGuest, isAuthenticated } = require('../middleware/auth');
 
 // Helper: audit log with Asia/Colombo (Sri Lanka Standard Time) timestamp
-function auditLog(userId, action, entity, entityId, details, ip) {
+async function auditLog(userId, action, entity, entityId, details, ip) {
     try {
-        execute(
+        await execute(
             `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [userId, action, entity, entityId, details, ip, getSLTimestamp()]
         );
@@ -56,7 +56,7 @@ router.post('/login', isGuest, [
 
     try {
         // Find user with role info
-        const user = queryOne(
+        const user = await queryOne(
             `SELECT u.*, r.role_name 
              FROM users u
              JOIN roles r ON u.role_id = r.id
@@ -76,7 +76,7 @@ router.post('/login', isGuest, [
         const isMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!isMatch) {
-            auditLog(user.id, 'LOGIN_FAILED', 'users', user.id, 'Invalid password', req.ip);
+            await auditLog(user.id, 'LOGIN_FAILED', 'users', user.id, 'Invalid password', req.ip);
             return res.render('auth/login', {
                 title: 'Login',
                 error: 'Invalid username or password',
@@ -85,7 +85,7 @@ router.post('/login', isGuest, [
         }
 
         // Update last login
-        execute('UPDATE users SET last_login = ? WHERE id = ?', [getSLTimestamp(), user.id]);
+        await execute('UPDATE users SET last_login = ? WHERE id = ?', [getSLTimestamp(), user.id]);
 
         // Store user in session (exclude password hash)
         req.session.user = {
@@ -99,7 +99,7 @@ router.post('/login', isGuest, [
         };
 
         // Audit log
-        auditLog(user.id, 'LOGIN_SUCCESS', 'users', user.id, null, req.ip);
+        await auditLog(user.id, 'LOGIN_SUCCESS', 'users', user.id, null, req.ip);
 
         // Redirect to intended page or dashboard
         const returnTo = req.session.returnTo || '/dashboard';
@@ -119,11 +119,11 @@ router.post('/login', isGuest, [
 // -------------------------------------------------
 // GET /auth/logout — Logout and destroy session
 // -------------------------------------------------
-router.get('/logout', isAuthenticated, (req, res) => {
+router.get('/logout', isAuthenticated, async (req, res) => {
     const userId = req.session.user ? req.session.user.id : null;
 
     if (userId) {
-        auditLog(userId, 'LOGOUT', 'users', userId, null, req.ip);
+        await auditLog(userId, 'LOGOUT', 'users', userId, null, req.ip);
     }
 
     req.session.destroy((err) => {
@@ -176,7 +176,7 @@ router.post('/change-password', isAuthenticated, [
     const userId = req.session.user.id;
 
     try {
-        const user = queryOne('SELECT password_hash FROM users WHERE id = ?', [userId]);
+        const user = await queryOne('SELECT password_hash FROM users WHERE id = ?', [userId]);
 
         const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
         if (!isMatch) {
@@ -191,11 +191,11 @@ router.post('/change-password', isAuthenticated, [
         const config = require('../config/config');
         const hashedPassword = await bcrypt.hash(newPassword, config.SALT_ROUNDS);
 
-        execute('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        await execute('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
             [hashedPassword, userId]
         );
 
-        auditLog(userId, 'PASSWORD_CHANGED', 'users', userId, null, req.ip);
+        await auditLog(userId, 'PASSWORD_CHANGED', 'users', userId, null, req.ip);
 
         res.render('auth/change-password', {
             title: 'Change Password',

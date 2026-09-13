@@ -24,7 +24,7 @@
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.0",
     "express-validator": "^7.1.0",
-    "sql.js": "^1.11.0"
+    "mysql2": "^3.24.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

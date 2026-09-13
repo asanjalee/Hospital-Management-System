@@ -149,10 +149,10 @@
                                         <div class="small text-dark fw-semibold"><i class="bi bi-calendar3 me-1 text-primary"></i><%= inv.invoice_date %></div>
                                     </td>
                                     <td>
-                                        <span class="fw-bold text-dark">LKR <%= inv.net_amount.toFixed(2) %></span>
+                                        <span class="fw-bold text-dark">LKR <%= Number(inv.net_amount || 0).toFixed(2) %></span>
                                     </td>
                                     <td>
-                                        <span class="fw-bold text-success">LKR <%= inv.paid_amount.toFixed(2) %></span>
+                                        <span class="fw-bold text-success">LKR <%= Number(inv.paid_amount || 0).toFixed(2) %></span>
                                     </td>
                                     <td>
                                         <span class="badge bg-light text-dark border px-2 py-1"><%= inv.payment_method || 'Unspecified' %></span>

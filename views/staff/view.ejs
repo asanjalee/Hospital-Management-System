@@ -1,0 +1,176 @@
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="/staff" class="btn btn-outline-secondary btn-sm mb-2">
+            <i class="bi bi-arrow-left me-1"></i> Back to Directory
+        </a>
+        <h4 class="fw-bold text-dark mb-1">
+            <%= staff.first_name %> <%= staff.last_name %>
+            <% if (staff.is_active && staff.employment_status !== 'Terminated') { %>
+                <span class="badge bg-success-subtle text-success fs-6 fw-normal ms-2"><%= staff.employment_status %></span>
+            <% } else { %>
+                <span class="badge bg-danger-subtle text-danger fs-6 fw-normal ms-2">Inactive</span>
+            <% } %>
+        </h4>
+        <p class="text-muted mb-0"><%= staff.designation %> &bull; <%= staff.department_name || 'General' %> &bull; <span class="font-monospace"><%= staff.employee_code %></span></p>
+    </div>
+    <div class="d-flex gap-2">
+        <form action="/staff/toggle-status/<%= staff.id %>" method="POST" class="d-inline">
+            <button type="submit" class="btn <%= staff.is_active ? 'btn-outline-danger' : 'btn-outline-success' %>" onclick="return confirm('Are you sure you want to change staff status?');">
+                <i class="bi <%= staff.is_active ? 'bi-person-x' : 'bi-person-check' %> me-1"></i>
+                <%= staff.is_active ? 'Deactivate Employee' : 'Activate Employee' %>
+            </button>
+        </form>
+        <a href="/staff/edit/<%= staff.id %>" class="btn btn-primary">
+            <i class="bi bi-pencil-fill me-1"></i> Edit Profile
+        </a>
+    </div>
+</div>
+
+<% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i> <%= success %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<% } %>
+
+<!-- Main Details Grid -->
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-4">
+        <div class="card border-0 shadow-sm rounded-3 h-100 p-4">
+            <div class="text-center mb-4">
+                <div class="rounded-circle bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center fw-bold fs-1 mb-2" style="width: 80px; height: 80px;">
+                    <%= staff.first_name.charAt(0) %><%= staff.last_name.charAt(0) %>
+                </div>
+                <h5 class="fw-bold mb-1"><%= staff.first_name %> <%= staff.last_name %></h5>
+                <p class="badge bg-light text-dark border mb-0"><%= staff.role_name %></p>
+            </div>
+
+            <hr>
+
+            <ul class="list-unstyled mb-0 d-flex flex-column gap-3">
+                <li class="d-flex justify-content-between">
+                    <span class="text-muted"><i class="bi bi-envelope me-2"></i> Email:</span>
+                    <span class="fw-semibold text-dark"><%= staff.email %></span>
+                </li>
+                <li class="d-flex justify-content-between">
+                    <span class="text-muted"><i class="bi bi-telephone me-2"></i> Phone:</span>
+                    <span class="fw-semibold text-dark"><%= staff.phone || 'N/A' %></span>
+                </li>
+                <li class="d-flex justify-content-between">
+                    <span class="text-muted"><i class="bi bi-card-heading me-2"></i> NIC Number:</span>
+                    <span class="fw-semibold text-dark"><%= staff.nic_number || 'N/A' %></span>
+                </li>
+                <li class="d-flex justify-content-between">
+                    <span class="text-muted"><i class="bi bi-building me-2"></i> Department:</span>
+                    <span class="fw-semibold text-dark"><%= staff.department_name || 'N/A' %></span>
+                </li>
+                <li class="d-flex justify-content-between">
+                    <span class="text-muted"><i class="bi bi-calendar-event me-2"></i> Joining Date:</span>
+                    <span class="fw-semibold text-dark"><%= staff.joining_date || 'N/A' %></span>
+                </li>
+                <li class="d-flex justify-content-between">
+                    <span class="text-muted"><i class="bi bi-cash-stack me-2"></i> Salary:</span>
+                    <span class="fw-bold text-success">LKR <%= Number(staff.salary || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) %></span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <!-- Attendance History -->
+        <div class="card border-0 shadow-sm rounded-3 mb-4">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0"><i class="bi bi-clock-history me-2 text-primary"></i> Attendance Log (Recent)</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Status</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (attendance.length === 0) { %>
+                                <tr>
+                                    <td colspan="5" class="text-center py-3 text-muted">No recent attendance records found.</td>
+                                </tr>
+                            <% } else { %>
+                                <% attendance.forEach(a => { %>
+                                    <tr>
+                                        <td class="fw-semibold"><%= a.attendance_date %></td>
+                                        <td><%= a.check_in || '--:--' %></td>
+                                        <td><%= a.check_out || '--:--' %></td>
+                                        <td>
+                                            <% if (a.status === 'Present') { %>
+                                                <span class="badge bg-success">Present</span>
+                                            <% } else if (a.status === 'Late') { %>
+                                                <span class="badge bg-warning text-dark">Late</span>
+                                            <% } else if (a.status === 'Half Day') { %>
+                                                <span class="badge bg-info text-dark">Half Day</span>
+                                            <% } else { %>
+                                                <span class="badge bg-danger"><%= a.status %></span>
+                                            <% } %>
+                                        </td>
+                                        <td><small class="text-muted"><%= a.remarks || '-' %></small></td>
+                                    </tr>
+                                <% }) %>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leave History -->
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0"><i class="bi bi-calendar-event me-2 text-primary"></i> Leave History</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Leave Type</th>
+                                <th>Dates</th>
+                                <th>Days</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (leaves.length === 0) { %>
+                                <tr>
+                                    <td colspan="5" class="text-center py-3 text-muted">No leave applications found for this employee.</td>
+                                </tr>
+                            <% } else { %>
+                                <% leaves.forEach(l => { %>
+                                    <tr>
+                                        <td><span class="badge bg-light text-dark border"><%= l.leave_type %></span></td>
+                                        <td><%= l.start_date %> to <%= l.end_date %></td>
+                                        <td class="fw-bold"><%= l.total_days %></td>
+                                        <td><small class="text-muted"><%= l.reason || '-' %></small></td>
+                                        <td>
+                                            <% if (l.status === 'Approved') { %>
+                                                <span class="badge bg-success">Approved</span>
+                                            <% } else if (l.status === 'Rejected') { %>
+                                                <span class="badge bg-danger">Rejected</span>
+                                            <% } else { %>
+                                                <span class="badge bg-warning text-dark">Pending</span>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

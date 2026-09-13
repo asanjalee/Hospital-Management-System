@@ -163,7 +163,7 @@
                                         <span class="badge bg-light text-dark border px-2 py-1"><%= med.category || 'General' %></span>
                                     </td>
                                     <td>
-                                        <span class="fw-bold text-dark">LKR <%= med.unit_price.toFixed(2) %></span>
+                                        <span class="fw-bold text-dark">LKR <%= Number(med.unit_price || 0).toFixed(2) %></span>
                                     </td>
                                     <td>
                                         <span class="fs-6 fw-bold <%= isLow ? 'text-danger' : 'text-dark' %>"><%= med.stock_quantity %> units</span>

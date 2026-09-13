@@ -87,6 +87,14 @@ app.use('/pharmacy', pharmacyRoutes);
 const billingRoutes = require('./routes/billing');
 app.use('/billing', billingRoutes);
 
+// Staff Management Module routes (Section 3.9)
+const staffRoutes = require('./routes/staff');
+app.use('/staff', staffRoutes);
+
+// Reports & Analytics Module routes (Section 3.10)
+const reportsRoutes = require('./routes/reports');
+app.use('/reports', reportsRoutes);
+
 // Root redirect
 app.get('/', (req, res) => {
     if (req.session && req.session.user) {
@@ -96,9 +104,9 @@ app.get('/', (req, res) => {
 });
 
 // -------------------------------------------------
-// Dashboard Route (Section 7 Real-time Metrics)
+// Dashboard Route (Section 7 Real-time Metrics - MySQL)
 // -------------------------------------------------
-app.get('/dashboard', isAuthenticated, (req, res) => {
+app.get('/dashboard', isAuthenticated, async (req, res) => {
     let stats = {
         totalPatients: 0,
         todayAppointments: 0,
@@ -107,16 +115,16 @@ app.get('/dashboard', isAuthenticated, (req, res) => {
     };
 
     try {
-        const patientCount = queryOne('SELECT COUNT(*) as count FROM patients WHERE is_active = 1');
+        const patientCount = await queryOne('SELECT COUNT(*) as count FROM patients WHERE is_active = 1');
         stats.totalPatients = patientCount ? patientCount.count : 0;
 
-        const apptCount = queryOne("SELECT COUNT(*) as count FROM appointments WHERE date(appointment_date) = date('now') AND status != 'Cancelled'");
+        const apptCount = await queryOne("SELECT COUNT(*) as count FROM appointments WHERE appointment_date = CURDATE() AND status != 'Cancelled'");
         stats.todayAppointments = apptCount ? apptCount.count : 0;
 
-        const revCount = queryOne("SELECT COALESCE(SUM(paid_amount), 0) as total FROM billing WHERE strftime('%Y-%m', invoice_date) = strftime('%Y-%m', 'now')");
+        const revCount = await queryOne("SELECT COALESCE(SUM(paid_amount), 0) as total FROM billing WHERE DATE_FORMAT(invoice_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
         stats.revenue = revCount ? Number(revCount.total).toFixed(2) : '0.00';
 
-        const labCount = queryOne("SELECT COUNT(*) as count FROM lab_requests WHERE status = 'Pending'");
+        const labCount = await queryOne("SELECT COUNT(*) as count FROM lab_requests WHERE status = 'Pending'");
         stats.labRequests = labCount ? labCount.count : 0;
     } catch (e) {
         console.error('Dashboard metrics error:', e.message);
@@ -125,22 +133,26 @@ app.get('/dashboard', isAuthenticated, (req, res) => {
     // Get recent audit logs
     let recentLogs = [];
     try {
-        recentLogs = queryAll(`
+        recentLogs = await queryAll(`
             SELECT al.*, u.full_name 
             FROM audit_logs al
             LEFT JOIN users u ON al.user_id = u.id
             ORDER BY al.created_at DESC
             LIMIT 8
         `);
-    } catch (e) {}
+    } catch (e) {
+        console.error('Dashboard audit logs query error:', e.message);
+    }
 
     // Get recent patients
     let recentPatients = [];
     try {
-        recentPatients = queryAll(`
+        recentPatients = await queryAll(`
             SELECT * FROM patients ORDER BY created_at DESC LIMIT 5
         `);
-    } catch (e) {}
+    } catch (e) {
+        console.error('Dashboard recent patients query error:', e.message);
+    }
 
     res.render('dashboard', {
         title: 'Dashboard',
@@ -149,25 +161,6 @@ app.get('/dashboard', isAuthenticated, (req, res) => {
         recentLogs,
         recentPatients,
         currentUser: req.session.user
-    });
-});
-
-// -------------------------------------------------
-// Placeholder routes for remaining future modules
-// -------------------------------------------------
-const placeholderModules = [
-    { path: '/staff', title: 'Staff Management', menu: 'staff', icon: 'bi-person-gear' },
-    { path: '/reports', title: 'Reports', menu: 'reports', icon: 'bi-bar-chart-line-fill' }
-];
-
-placeholderModules.forEach(mod => {
-    app.get(mod.path, isAuthenticated, (req, res) => {
-        res.render('placeholder', {
-            title: mod.title,
-            activeMenu: mod.menu,
-            icon: mod.icon,
-            currentUser: req.session.user
-        });
     });
 });
 

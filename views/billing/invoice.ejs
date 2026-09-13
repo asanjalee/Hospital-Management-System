@@ -111,8 +111,8 @@
                                     <td><span class="badge bg-light text-dark border py-1 px-2"><%= item.item_type %></span></td>
                                     <td class="fw-semibold text-dark"><%= item.description %></td>
                                     <td class="text-center"><%= item.quantity %></td>
-                                    <td class="text-end">LKR <%= item.unit_price.toFixed(2) %></td>
-                                    <td class="text-end pe-2 fw-bold">LKR <%= item.amount.toFixed(2) %></td>
+                                    <td class="text-end">LKR <%= Number(item.unit_price || 0).toFixed(2) %></td>
+                                    <td class="text-end pe-2 fw-bold">LKR <%= Number(item.amount || 0).toFixed(2) %></td>
                                 </tr>
                             <% }); %>
                         <% } else { %>
@@ -121,8 +121,8 @@
                                 <td><span class="badge bg-light text-dark border py-1 px-2">General</span></td>
                                 <td class="fw-semibold text-dark">Hospital Consultation & Clinical Services</td>
                                 <td class="text-center">1</td>
-                                <td class="text-end">LKR <%= invoice.total_amount.toFixed(2) %></td>
-                                <td class="text-end pe-2 fw-bold">LKR <%= invoice.total_amount.toFixed(2) %></td>
+                                <td class="text-end">LKR <%= Number(invoice.total_amount || 0).toFixed(2) %></td>
+                                <td class="text-end pe-2 fw-bold">LKR <%= Number(invoice.total_amount || 0).toFixed(2) %></td>
                             </tr>
                         <% } %>
                     </tbody>
@@ -135,26 +135,26 @@
                     <div class="p-2 p-md-3 bg-light rounded-3 printable-totals">
                         <div class="d-flex justify-content-between mb-1 small">
                             <span class="text-muted">Gross Total Amount:</span>
-                            <span class="fw-bold text-dark">LKR <%= invoice.total_amount.toFixed(2) %></span>
+                            <span class="fw-bold text-dark">LKR <%= Number(invoice.total_amount || 0).toFixed(2) %></span>
                         </div>
                         <% if (invoice.discount_amount > 0) { %>
                             <div class="d-flex justify-content-between mb-1 small">
                                 <span class="text-muted">Discount Applied:</span>
-                                <span class="fw-bold text-danger">- LKR <%= invoice.discount_amount.toFixed(2) %></span>
+                                <span class="fw-bold text-danger">- LKR <%= Number(invoice.discount_amount || 0).toFixed(2) %></span>
                             </div>
                         <% } %>
                         <div class="d-flex justify-content-between border-top border-bottom py-1 my-1 fs-6">
                             <span class="fw-bold text-dark">Net Total Amount:</span>
-                            <span class="fw-bold text-primary">LKR <%= invoice.net_amount.toFixed(2) %></span>
+                            <span class="fw-bold text-primary">LKR <%= Number(invoice.net_amount || 0).toFixed(2) %></span>
                         </div>
                         <div class="d-flex justify-content-between mb-1 small">
                             <span class="text-muted">Amount Paid:</span>
-                            <span class="fw-bold text-success">LKR <%= invoice.paid_amount.toFixed(2) %></span>
+                            <span class="fw-bold text-success">LKR <%= Number(invoice.paid_amount || 0).toFixed(2) %></span>
                         </div>
                         <div class="d-flex justify-content-between small fw-bold">
                             <span class="text-dark">Balance Due:</span>
-                            <span class="<%= (invoice.net_amount - invoice.paid_amount) > 0 ? 'text-danger' : 'text-success' %>">
-                                LKR <%= Math.max(0, invoice.net_amount - invoice.paid_amount).toFixed(2) %>
+                            <span class="<%= (Number(invoice.net_amount || 0) - Number(invoice.paid_amount || 0)) > 0 ? 'text-danger' : 'text-success' %>">
+                                LKR <%= Math.max(0, Number(invoice.net_amount || 0) - Number(invoice.paid_amount || 0)).toFixed(2) %>
                             </span>
                         </div>
                     </div>
@@ -171,7 +171,7 @@
                         <form action="/billing/payment/<%= invoice.id %>" method="POST" class="row g-2 align-items-end">
                             <div class="col-12 col-md-4">
                                 <label for="amount" class="form-label fw-semibold text-dark small mb-1">Payment Amount (LKR)</label>
-                                <input type="number" step="0.01" id="amount" name="amount" class="form-control fw-bold text-success" value="<%= (invoice.net_amount - invoice.paid_amount).toFixed(2) %>" required>
+                                <input type="number" step="0.01" id="amount" name="amount" class="form-control fw-bold text-success" value="<%= Math.max(0, Number(invoice.net_amount || 0) - Number(invoice.paid_amount || 0)).toFixed(2) %>" required>
                             </div>
                             <div class="col-12 col-md-4">
                                 <label for="payment_method" class="form-label fw-semibold text-dark small mb-1">Payment Method</label>

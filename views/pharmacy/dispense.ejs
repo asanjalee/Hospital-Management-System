@@ -48,7 +48,7 @@
                             <option value="">-- Choose In-Stock Medicine --</option>
                             <% medicines.forEach(med => { %>
                                 <option value="<%= med.id %>" <%= formData.medicine_id == med.id ? 'selected' : '' %>>
-                                    <%= med.name %> (<%= med.medicine_code %>) &bull; Price: LKR <%= med.unit_price.toFixed(2) %> &bull; In-Stock: <%= med.stock_quantity %>
+                                    <%= med.name %> (<%= med.medicine_code %>) &bull; Price: LKR <%= Number(med.unit_price || 0).toFixed(2) %> &bull; In-Stock: <%= med.stock_quantity %>
                                 </option>
                             <% }); %>
                         </select>

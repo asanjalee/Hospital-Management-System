@@ -1,0 +1,114 @@
+<div class="mb-4">
+    <a href="/staff" class="btn btn-outline-secondary btn-sm mb-2">
+        <i class="bi bi-arrow-left me-1"></i> Back to Staff Directory
+    </a>
+    <h4 class="fw-bold text-dark mb-1">Register New Staff Member</h4>
+    <p class="text-muted mb-0">Add a new hospital employee to the HR database system</p>
+</div>
+
+<% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+    <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+        <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i> Please fix the following errors:</h6>
+        <ul class="mb-0 ps-3">
+            <% errors.forEach(err => { %>
+                <li><%= err.msg %></li>
+            <% }) %>
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<% } %>
+
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="card-body p-4">
+        <form action="/staff/add" method="POST">
+            <!-- Employee Code & Basic Info -->
+            <h6 class="fw-bold text-primary mb-3 text-uppercase small tracking-wide">1. Basic Employee Information</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Employee Code *</label>
+                    <input type="text" name="employee_code" class="form-control font-monospace bg-light" value="<%= typeof formData !== 'undefined' && formData.employee_code ? formData.employee_code : autoCode %>" required>
+                    <small class="text-muted">Auto-generated identifier</small>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">First Name *</label>
+                    <input type="text" name="first_name" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.first_name || '' : '' %>" placeholder="e.g. Mary" required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Last Name *</label>
+                    <input type="text" name="last_name" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.last_name || '' : '' %>" placeholder="e.g. Fernando" required>
+                </div>
+            </div>
+
+            <!-- Contact & Identification -->
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Email Address *</label>
+                    <input type="email" name="email" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.email || '' : '' %>" placeholder="staff@hospital.com" required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Phone Number</label>
+                    <input type="tel" name="phone" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.phone || '' : '' %>" placeholder="+94 77 1234567">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">NIC Number</label>
+                    <input type="text" name="nic_number" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.nic_number || '' : '' %>" placeholder="e.g. 198512300456">
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- HR & Job Role Details -->
+            <h6 class="fw-bold text-primary mb-3 text-uppercase small tracking-wide">2. Job Role & Assignment</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">System Role *</label>
+                    <select name="role_id" class="form-select" required>
+                        <option value="">-- Select Role --</option>
+                        <% roles.forEach(r => { %>
+                            <option value="<%= r.id %>" <%= typeof formData !== 'undefined' && formData.role_id == r.id ? 'selected' : '' %>><%= r.role_name %></option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Department</label>
+                    <select name="department_id" class="form-select">
+                        <option value="">-- Select Department --</option>
+                        <% departments.forEach(d => { %>
+                            <option value="<%= d.id %>" <%= typeof formData !== 'undefined' && formData.department_id == d.id ? 'selected' : '' %>><%= d.department_name %></option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Job Designation *</label>
+                    <input type="text" name="designation" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.designation || '' : '' %>" placeholder="e.g. Head Nurse / Senior Accountant" required>
+                </div>
+            </div>
+
+            <!-- Employment Terms -->
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Joining Date</label>
+                    <input type="date" name="joining_date" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.joining_date || todayStr : todayStr %>">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Monthly Salary (LKR)</label>
+                    <input type="number" step="0.01" name="salary" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.salary || '75000.00' : '75000.00' %>">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold">Employment Status</label>
+                    <select name="employment_status" class="form-select">
+                        <option value="Full-Time" selected>Full-Time</option>
+                        <option value="Part-Time">Part-Time</option>
+                        <option value="Contract">Contract</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                <a href="/staff" class="btn btn-light border px-4">Cancel</a>
+                <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-1"></i> Register Employee</button>
+            </div>
+        </form>
+    </div>
+</div>
