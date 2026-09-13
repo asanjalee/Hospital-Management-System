@@ -1,6 +1,7 @@
 // =====================================================
 // Authentication & Authorization Middleware
 // =====================================================
+const { execute, getSLTimestamp } = require('../database/db');
 
 /**
  * Checks if the user is logged in.
@@ -58,14 +59,15 @@ function authorize(...allowedRoles) {
 }
 
 /**
- * Logs user actions to the audit_logs table.
+ * Logs user actions to the audit_logs table (Async for MySQL).
  */
-function auditLog(db, userId, action, entity = null, entityId = null, details = null, ipAddress = null) {
+async function auditLog(userId, action, entity = null, entityId = null, details = null, ipAddress = null) {
     try {
-        db.prepare(`
-            INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `).run(userId, action, entity, entityId, details, ipAddress);
+        await execute(
+            `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [userId, action, entity, entityId, details, ipAddress, getSLTimestamp()]
+        );
     } catch (err) {
         console.error('Audit log error:', err.message);
     }

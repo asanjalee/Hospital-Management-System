@@ -1,5 +1,5 @@
 // =====================================================
-// Billing & Invoicing System Router
+// Billing & Invoicing System Router - MySQL Async
 // =====================================================
 const express = require('express');
 const router = express.Router();
@@ -8,9 +8,9 @@ const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db'
 const { isAuthenticated, authorize } = require('../middleware/auth');
 
 // Audit log helper (Sri Lanka Standard Time)
-function auditLog(userId, action, entity, entityId, details, ip) {
+async function auditLog(userId, action, entity, entityId, details, ip) {
     try {
-        execute(
+        await execute(
             `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [userId, action, entity, entityId, details, ip, getSLTimestamp()]
         );
@@ -20,9 +20,9 @@ function auditLog(userId, action, entity, entityId, details, ip) {
 }
 
 // Generate unique invoice number (INV-YYYY-XXXX)
-function generateInvoiceNumber() {
+async function generateInvoiceNumber() {
     const year = new Date().getFullYear();
-    const countResult = queryOne('SELECT COUNT(*) as total FROM billing');
+    const countResult = await queryOne('SELECT COUNT(*) as total FROM billing');
     const nextNum = (countResult ? countResult.total + 1 : 1).toString().padStart(4, '0');
     return `INV-${year}-${nextNum}`;
 }
@@ -34,7 +34,7 @@ router.use(authorize('Administrator', 'Cashier', 'Receptionist', 'Accountant'));
 // -------------------------------------------------
 // GET /billing — Invoice Directory & Financial Dashboard
 // -------------------------------------------------
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const search = req.query.search ? req.query.search.trim() : '';
     const status = req.query.status || '';
 
@@ -63,13 +63,13 @@ router.get('/', (req, res) => {
     sql += ` ORDER BY b.invoice_date DESC, b.id DESC`;
 
     try {
-        const invoices = queryAll(sql, params) || [];
+        const invoices = await queryAll(sql, params) || [];
 
         const stats = {
-            totalCount: queryOne('SELECT COUNT(*) as cnt FROM billing')?.cnt || 0,
-            totalRevenue: queryOne('SELECT SUM(net_amount) as total FROM billing')?.total || 0,
-            paidRevenue: queryOne('SELECT SUM(paid_amount) as total FROM billing')?.total || 0,
-            unpaidAmount: queryOne('SELECT SUM(net_amount - paid_amount) as total FROM billing WHERE payment_status != "Paid"')?.total || 0
+            totalCount: (await queryOne('SELECT COUNT(*) as cnt FROM billing'))?.cnt || 0,
+            totalRevenue: (await queryOne('SELECT SUM(net_amount) as total FROM billing'))?.total || 0,
+            paidRevenue: (await queryOne('SELECT SUM(paid_amount) as total FROM billing'))?.total || 0,
+            unpaidAmount: (await queryOne('SELECT SUM(net_amount - paid_amount) as total FROM billing WHERE payment_status != "Paid"'))?.total || 0
         };
 
         res.render('billing/index', {
@@ -95,14 +95,14 @@ router.get('/', (req, res) => {
 // -------------------------------------------------
 // GET /billing/create — Create Invoice Form
 // -------------------------------------------------
-router.get('/create', (req, res) => {
+router.get('/create', async (req, res) => {
     const prePatientId = req.query.patient_id || '';
     const preAppointmentId = req.query.appointment_id || '';
 
     try {
-        const autoInvoiceNum = generateInvoiceNumber();
-        const patients = queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
-        const appointments = queryAll(`
+        const autoInvoiceNum = await generateInvoiceNumber();
+        const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
+        const appointments = await queryAll(`
             SELECT a.id, a.appointment_number, a.appointment_date, p.patient_uid, p.first_name, p.last_name, doc.consultation_fee, u.full_name as doctor_name
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
@@ -110,7 +110,7 @@ router.get('/create', (req, res) => {
             JOIN users u ON doc.user_id = u.id
             ORDER BY a.appointment_date DESC
         `) || [];
-        const medicines = queryAll(`SELECT id, medicine_code, name, unit_price, stock_quantity FROM medicines WHERE is_active = 1 AND stock_quantity > 0 ORDER BY name ASC`) || [];
+        const medicines = await queryAll(`SELECT id, medicine_code, name, unit_price, stock_quantity FROM medicines WHERE is_active = 1 AND stock_quantity > 0 ORDER BY name ASC`) || [];
 
         const todayStr = new Date().toISOString().split('T')[0];
 
@@ -146,18 +146,18 @@ router.get('/create', (req, res) => {
 router.post('/create', [
     body('patient_id').notEmpty().withMessage('Patient selection is required'),
     body('invoice_date').notEmpty().isISO8601().withMessage('Valid invoice date is required')
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
-        const patients = queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
-        const appointments = queryAll(`SELECT a.id, a.appointment_number, a.appointment_date, p.patient_uid, p.first_name, p.last_name, doc.consultation_fee, u.full_name as doctor_name FROM appointments a JOIN patients p ON a.patient_id = p.id JOIN doctors doc ON a.doctor_id = doc.id JOIN users u ON doc.user_id = u.id ORDER BY a.appointment_date DESC`) || [];
-        const medicines = queryAll(`SELECT id, medicine_code, name, unit_price, stock_quantity FROM medicines WHERE is_active = 1 AND stock_quantity > 0 ORDER BY name ASC`) || [];
+        const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
+        const appointments = await queryAll(`SELECT a.id, a.appointment_number, a.appointment_date, p.patient_uid, p.first_name, p.last_name, doc.consultation_fee, u.full_name as doctor_name FROM appointments a JOIN patients p ON a.patient_id = p.id JOIN doctors doc ON a.doctor_id = doc.id JOIN users u ON doc.user_id = u.id ORDER BY a.appointment_date DESC`) || [];
+        const medicines = await queryAll(`SELECT id, medicine_code, name, unit_price, stock_quantity FROM medicines WHERE is_active = 1 AND stock_quantity > 0 ORDER BY name ASC`) || [];
 
         return res.render('billing/create', {
             title: 'Generate Itemized Patient Invoice',
             activeMenu: 'billing',
-            autoInvoiceNum: req.body.invoice_number || generateInvoiceNumber(),
+            autoInvoiceNum: req.body.invoice_number || await generateInvoiceNumber(),
             patients,
             appointments,
             medicines,
@@ -176,7 +176,7 @@ router.post('/create', [
     } = req.body;
 
     try {
-        const invNum = invoice_number && invoice_number.trim() ? invoice_number.trim() : generateInvoiceNumber();
+        const invNum = invoice_number && invoice_number.trim() ? invoice_number.trim() : await generateInvoiceNumber();
 
         // Calculate item totals
         let totalAmount = 0;
@@ -216,7 +216,7 @@ router.post('/create', [
             status = 'Partially Paid';
         }
 
-        const result = execute(`
+        const result = await execute(`
             INSERT INTO billing (
                 invoice_number, patient_id, appointment_id, total_amount, discount_amount,
                 net_amount, paid_amount, payment_status, payment_method, invoice_date, notes, created_by, created_at
@@ -240,14 +240,14 @@ router.post('/create', [
         const billingId = result.lastInsertRowid;
 
         // Insert line items
-        lineItems.forEach(item => {
-            execute(`
+        for (const item of lineItems) {
+            await execute(`
                 INSERT INTO billing_items (billing_id, item_type, description, quantity, unit_price, amount, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             `, [billingId, item.type, item.description, item.quantity, item.unit_price, item.amount, getSLTimestamp()]);
-        });
+        }
 
-        auditLog(req.session.user.id, 'INVOICE_GENERATED', 'billing', billingId, `Generated Invoice ${invNum} for patient ID #${patient_id} (Net: LKR ${netAmount.toFixed(2)}, Status: ${status})`, req.ip);
+        await auditLog(req.session.user.id, 'INVOICE_GENERATED', 'billing', billingId, `Generated Invoice ${invNum} for patient ID #${patient_id} (Net: LKR ${netAmount.toFixed(2)}, Status: ${status})`, req.ip);
 
         req.session.successMessage = `Invoice ${invNum} generated successfully!`;
         res.redirect(`/billing/invoice/${billingId}`);
@@ -262,11 +262,11 @@ router.post('/create', [
 // -------------------------------------------------
 // GET /billing/invoice/:id — Printable Receipt / Invoice View
 // -------------------------------------------------
-router.get('/invoice/:id', (req, res) => {
+router.get('/invoice/:id', async (req, res) => {
     const invId = req.params.id;
 
     try {
-        const invoice = queryOne(`
+        const invoice = await queryOne(`
             SELECT b.*, 
                    p.patient_uid, p.first_name as patient_first_name, p.last_name as patient_last_name, p.address, p.city, p.phone as patient_phone, p.nic_number,
                    u.full_name as creator_name,
@@ -285,7 +285,7 @@ router.get('/invoice/:id', (req, res) => {
             return res.redirect('/billing');
         }
 
-        const items = queryAll(`SELECT * FROM billing_items WHERE billing_id = ? ORDER BY id ASC`, [invoice.id]) || [];
+        const items = await queryAll(`SELECT * FROM billing_items WHERE billing_id = ? ORDER BY id ASC`, [invoice.id]) || [];
 
         res.render('billing/invoice', {
             title: `Invoice ${invoice.invoice_number}`,
@@ -308,7 +308,7 @@ router.get('/invoice/:id', (req, res) => {
 // -------------------------------------------------
 // POST /billing/payment/:id — Record Invoice Payment
 // -------------------------------------------------
-router.post('/payment/:id', (req, res) => {
+router.post('/payment/:id', async (req, res) => {
     const invId = req.params.id;
     const { amount, payment_method, notes } = req.body;
 
@@ -319,7 +319,7 @@ router.post('/payment/:id', (req, res) => {
     }
 
     try {
-        const invoice = queryOne(`SELECT * FROM billing WHERE id = ?`, [invId]);
+        const invoice = await queryOne(`SELECT * FROM billing WHERE id = ?`, [invId]);
         if (!invoice) {
             req.session.errorMessage = 'Invoice record not found.';
             return res.redirect('/billing');
@@ -333,7 +333,7 @@ router.post('/payment/:id', (req, res) => {
             newStatus = 'Partially Paid';
         }
 
-        execute(`
+        await execute(`
             UPDATE billing SET
                 paid_amount = ?,
                 payment_status = ?,
@@ -342,7 +342,7 @@ router.post('/payment/:id', (req, res) => {
             WHERE id = ?
         `, [newPaidTotal, newStatus, payment_method ? payment_method : null, notes ? notes.trim() : null, invId]);
 
-        auditLog(req.session.user.id, 'INVOICE_PAYMENT_RECORDED', 'billing', invId, `Recorded payment of LKR ${paymentAmount.toFixed(2)} on Invoice ${invoice.invoice_number} (New Status: ${newStatus})`, req.ip);
+        await auditLog(req.session.user.id, 'INVOICE_PAYMENT_RECORDED', 'billing', invId, `Recorded payment of LKR ${paymentAmount.toFixed(2)} on Invoice ${invoice.invoice_number} (New Status: ${newStatus})`, req.ip);
 
         req.session.successMessage = `Payment of LKR ${paymentAmount.toFixed(2)} recorded successfully for Invoice ${invoice.invoice_number}!`;
         res.redirect(`/billing/invoice/${invId}`);

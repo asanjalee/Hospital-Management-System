@@ -1,5 +1,5 @@
 // =====================================================
-// Doctor Management Routes (CRUD + Department Assignment)
+// Doctor Management Routes (CRUD + Department Assignment) - MySQL Async
 // =====================================================
 const express = require('express');
 const router = express.Router();
@@ -9,9 +9,9 @@ const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db'
 const { isAuthenticated, authorize } = require('../middleware/auth');
 
 // Audit log helper (using Sri Lanka Standard Time)
-function auditLog(userId, action, entity, entityId, details, ip) {
+async function auditLog(userId, action, entity, entityId, details, ip) {
     try {
-        execute(
+        await execute(
             `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [userId, action, entity, entityId, details, ip, getSLTimestamp()]
         );
@@ -27,7 +27,7 @@ router.use(authorize('Administrator', 'Doctor', 'Nurse', 'Receptionist'));
 // -------------------------------------------------
 // GET /doctors — Doctor Directory, Search & Filter
 // -------------------------------------------------
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const search = req.query.search ? req.query.search.trim() : '';
     const departmentId = req.query.department_id || '';
     const availability = req.query.availability || '';
@@ -62,12 +62,12 @@ router.get('/', (req, res) => {
     sql += ` ORDER BY u.full_name ASC`;
 
     try {
-        const doctors = queryAll(sql, params) || [];
-        const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+        const doctors = await queryAll(sql, params) || [];
+        const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
 
         // Statistics
-        const totalDoctors = queryOne('SELECT COUNT(*) as cnt FROM doctors') || { cnt: 0 };
-        const availableDoctors = queryOne('SELECT COUNT(*) as cnt FROM doctors WHERE is_available = 1') || { cnt: 0 };
+        const totalDoctors = await queryOne('SELECT COUNT(*) as cnt FROM doctors') || { cnt: 0 };
+        const availableDoctors = await queryOne('SELECT COUNT(*) as cnt FROM doctors WHERE is_available = 1') || { cnt: 0 };
 
         res.render('doctors/index', {
             title: 'Doctor Directory',
@@ -98,9 +98,9 @@ router.get('/', (req, res) => {
 // -------------------------------------------------
 // GET /doctors/add — Show Add Doctor Form
 // -------------------------------------------------
-router.get('/add', (req, res) => {
+router.get('/add', async (req, res) => {
     try {
-        const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+        const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
         res.render('doctors/add', {
             title: 'Add New Doctor',
             activeMenu: 'doctors',
@@ -134,7 +134,7 @@ router.post('/add', [
     })
 ], async (req, res) => {
     const errors = validationResult(req);
-    const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+    const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
 
     if (!errors.isEmpty()) {
         return res.render('doctors/add', {
@@ -154,7 +154,7 @@ router.post('/add', [
 
     try {
         // Check username / email uniqueness
-        const existingUser = queryOne('SELECT id FROM users WHERE username = ? OR email = ?', [username.trim(), email.trim()]);
+        const existingUser = await queryOne('SELECT id FROM users WHERE username = ? OR email = ?', [username.trim(), email.trim()]);
         if (existingUser) {
             return res.render('doctors/add', {
                 title: 'Add New Doctor',
@@ -167,7 +167,7 @@ router.post('/add', [
         }
 
         // Get Doctor role ID
-        const doctorRole = queryOne("SELECT id FROM roles WHERE role_name = 'Doctor'");
+        const doctorRole = await queryOne("SELECT id FROM roles WHERE role_name = 'Doctor'");
         const roleId = doctorRole ? doctorRole.id : 2;
 
         // Hash password (default: 'doctor123' if empty)
@@ -175,7 +175,7 @@ router.post('/add', [
         const passwordHash = bcrypt.hashSync(plainPassword, 10);
 
         // 1. Create User Account
-        const userResult = execute(
+        const userResult = await execute(
             `INSERT INTO users (username, email, password_hash, full_name, role_id, department_id, phone, is_active)
              VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
             [username.trim(), email.trim(), passwordHash, full_name.trim(), roleId, department_id, phone ? phone.trim() : null]
@@ -184,7 +184,7 @@ router.post('/add', [
         const newUserId = userResult.lastInsertRowid;
 
         // 2. Create Doctor Profile
-        const docResult = execute(
+        const docResult = await execute(
             `INSERT INTO doctors (user_id, department_id, specialization, qualification, room_number, consultation_fee, availability_schedule, is_available)
              VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
             [
@@ -196,7 +196,7 @@ router.post('/add', [
             ]
         );
 
-        auditLog(req.session.user.id, 'DOCTOR_ADDED', 'doctors', docResult.lastInsertRowid, `Registered doctor ${full_name} (${specialization})`, req.ip);
+        await auditLog(req.session.user.id, 'DOCTOR_ADDED', 'doctors', docResult.lastInsertRowid, `Registered doctor ${full_name} (${specialization})`, req.ip);
 
         req.session.successMessage = `Doctor ${full_name} added successfully!`;
         res.redirect(`/doctors/view/${docResult.lastInsertRowid}`);
@@ -217,11 +217,11 @@ router.post('/add', [
 // -------------------------------------------------
 // GET /doctors/view/:id — View Doctor Profile & Appointments
 // -------------------------------------------------
-router.get('/view/:id', (req, res) => {
+router.get('/view/:id', async (req, res) => {
     const docId = req.params.id;
 
     try {
-        const doctor = queryOne(`
+        const doctor = await queryOne(`
             SELECT doc.*, u.full_name, u.username, u.email, u.phone as user_phone, u.is_active as user_active,
                    d.department_name, d.head_of_dept, d.phone as dept_phone
             FROM doctors doc
@@ -236,7 +236,7 @@ router.get('/view/:id', (req, res) => {
         }
 
         // Fetch appointments for this doctor
-        const appointments = queryAll(`
+        const appointments = await queryAll(`
             SELECT a.*, p.patient_uid, p.first_name as patient_first_name, p.last_name as patient_last_name, p.phone as patient_phone, p.gender
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
@@ -276,11 +276,11 @@ router.get('/view/:id', (req, res) => {
 // -------------------------------------------------
 // GET /doctors/edit/:id — Show Edit Doctor Form
 // -------------------------------------------------
-router.get('/edit/:id', (req, res) => {
+router.get('/edit/:id', async (req, res) => {
     const docId = req.params.id;
 
     try {
-        const doctor = queryOne(`
+        const doctor = await queryOne(`
             SELECT doc.*, u.full_name, u.email, u.phone as user_phone
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
@@ -292,7 +292,7 @@ router.get('/edit/:id', (req, res) => {
             return res.redirect('/doctors');
         }
 
-        const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+        const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
 
         res.render('doctors/edit', {
             title: `Edit Doctor - ${doctor.full_name}`,
@@ -325,10 +325,10 @@ router.post('/edit/:id', [
         }
         return true;
     })
-], (req, res) => {
+], async (req, res) => {
     const docId = req.params.id;
     const errors = validationResult(req);
-    const departments = queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
+    const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
 
     if (!errors.isEmpty()) {
         const doctor = { ...req.body, id: docId };
@@ -348,20 +348,20 @@ router.post('/edit/:id', [
     } = req.body;
 
     try {
-        const existingDoc = queryOne('SELECT id, user_id FROM doctors WHERE id = ?', [docId]);
+        const existingDoc = await queryOne('SELECT id, user_id FROM doctors WHERE id = ?', [docId]);
         if (!existingDoc) {
             req.session.errorMessage = 'Doctor record not found.';
             return res.redirect('/doctors');
         }
 
         // Update User info
-        execute(
+        await execute(
             `UPDATE users SET full_name = ?, email = ?, phone = ?, department_id = ?, updated_at = ? WHERE id = ?`,
             [full_name.trim(), email.trim(), phone ? phone.trim() : null, department_id, getSLTimestamp(), existingDoc.user_id]
         );
 
         // Update Doctor profile
-        execute(
+        await execute(
             `UPDATE doctors SET
                 department_id = ?, specialization = ?, qualification = ?,
                 room_number = ?, consultation_fee = ?, availability_schedule = ?
@@ -376,7 +376,7 @@ router.post('/edit/:id', [
             ]
         );
 
-        auditLog(req.session.user.id, 'DOCTOR_UPDATED', 'doctors', existingDoc.id, `Updated doctor ${full_name}`, req.ip);
+        await auditLog(req.session.user.id, 'DOCTOR_UPDATED', 'doctors', existingDoc.id, `Updated doctor ${full_name}`, req.ip);
 
         req.session.successMessage = `Doctor profile for ${full_name} updated successfully.`;
         res.redirect(`/doctors/view/${existingDoc.id}`);
@@ -391,11 +391,11 @@ router.post('/edit/:id', [
 // -------------------------------------------------
 // POST /doctors/toggle-availability/:id — Toggle Doctor Status
 // -------------------------------------------------
-router.post('/toggle-availability/:id', (req, res) => {
+router.post('/toggle-availability/:id', async (req, res) => {
     const docId = req.params.id;
 
     try {
-        const doc = queryOne(`
+        const doc = await queryOne(`
             SELECT d.id, d.is_available, u.full_name
             FROM doctors d
             JOIN users u ON d.user_id = u.id
@@ -404,10 +404,10 @@ router.post('/toggle-availability/:id', (req, res) => {
 
         if (doc) {
             const newStatus = doc.is_available === 1 ? 0 : 1;
-            execute('UPDATE doctors SET is_available = ? WHERE id = ?', [newStatus, docId]);
+            await execute('UPDATE doctors SET is_available = ? WHERE id = ?', [newStatus, docId]);
 
             const statusText = newStatus === 1 ? 'Available' : 'Unavailable/On-Leave';
-            auditLog(req.session.user.id, 'DOCTOR_AVAILABILITY_CHANGED', 'doctors', docId, `Status set to ${statusText}`, req.ip);
+            await auditLog(req.session.user.id, 'DOCTOR_AVAILABILITY_CHANGED', 'doctors', docId, `Status set to ${statusText}`, req.ip);
 
             req.session.successMessage = `${doc.full_name} availability updated to ${statusText}.`;
         }

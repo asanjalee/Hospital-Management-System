@@ -1,5 +1,5 @@
 // =====================================================
-// Patient Management Routes (CRUD + Medical History)
+// Patient Management Routes (CRUD + Medical History) - MySQL Async
 // =====================================================
 const express = require('express');
 const router = express.Router();
@@ -8,9 +8,9 @@ const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db'
 const { isAuthenticated, authorize } = require('../middleware/auth');
 
 // Audit log helper (using Sri Lanka Standard Time)
-function auditLog(userId, action, entity, entityId, details, ip) {
+async function auditLog(userId, action, entity, entityId, details, ip) {
     try {
-        execute(
+        await execute(
             `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [userId, action, entity, entityId, details, ip, getSLTimestamp()]
         );
@@ -20,9 +20,9 @@ function auditLog(userId, action, entity, entityId, details, ip) {
 }
 
 // Generate unique patient UID (PAT-YYYY-XXXX)
-function generatePatientUID() {
+async function generatePatientUID() {
     const year = new Date().getFullYear();
-    const countResult = queryOne('SELECT COUNT(*) as total FROM patients');
+    const countResult = await queryOne('SELECT COUNT(*) as total FROM patients');
     const nextNum = (countResult ? countResult.total + 1 : 1).toString().padStart(4, '0');
     return `PAT-${year}-${nextNum}`;
 }
@@ -34,7 +34,7 @@ router.use(authorize('Administrator', 'Doctor', 'Nurse', 'Receptionist'));
 // -------------------------------------------------
 // GET /patients — Patient List & Search
 // -------------------------------------------------
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const search = req.query.search ? req.query.search.trim() : '';
     const bloodGroup = req.query.blood_group || '';
     const gender = req.query.gender || '';
@@ -52,10 +52,10 @@ router.get('/', (req, res) => {
         const searchWords = search.split(/\s+/).filter(w => w.length > 0);
 
         if (searchWords.length > 1) {
-            // For multi-word queries like "Kamal Perera", check concatenated full name OR match all words across fields
+            // Check concatenated full name OR match all words across fields using MySQL CONCAT
             sql += ` AND (
-                (p.first_name || ' ' || p.last_name) LIKE ? 
-                OR (p.last_name || ' ' || p.first_name) LIKE ?
+                CONCAT(p.first_name, ' ', p.last_name) LIKE ? 
+                OR CONCAT(p.last_name, ' ', p.first_name) LIKE ?
                 OR p.patient_uid LIKE ?
                 OR p.nic_number LIKE ?
                 OR p.phone LIKE ?`;
@@ -78,7 +78,7 @@ router.get('/', (req, res) => {
                 OR p.last_name LIKE ? 
                 OR p.nic_number LIKE ? 
                 OR p.phone LIKE ?
-                OR (p.first_name || ' ' || p.last_name) LIKE ?
+                OR CONCAT(p.first_name, ' ', p.last_name) LIKE ?
             )`;
             params.push(fullTerm, fullTerm, fullTerm, fullTerm, fullTerm, fullTerm);
         }
@@ -97,7 +97,7 @@ router.get('/', (req, res) => {
     sql += ` ORDER BY p.created_at DESC`;
 
     try {
-        const patients = queryAll(sql, params);
+        const patients = await queryAll(sql, params) || [];
 
         res.render('patients/index', {
             title: 'Patient Directory',
@@ -122,8 +122,8 @@ router.get('/', (req, res) => {
 // -------------------------------------------------
 // GET /patients/add — Show Register Patient Form
 // -------------------------------------------------
-router.get('/add', (req, res) => {
-    const autoUID = generatePatientUID();
+router.get('/add', async (req, res) => {
+    const autoUID = await generatePatientUID();
 
     res.render('patients/add', {
         title: 'Register New Patient',
@@ -164,14 +164,14 @@ router.post('/add', [
         }
         return true;
     })
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
         return res.render('patients/add', {
             title: 'Register New Patient',
             activeMenu: 'patients',
-            patientUID: req.body.patient_uid || generatePatientUID(),
+            patientUID: req.body.patient_uid || await generatePatientUID(),
             errors: errors.array(),
             formData: req.body,
             currentUser: req.session.user
@@ -187,7 +187,7 @@ router.post('/add', [
     try {
         // Check NIC uniqueness if provided
         if (nic_number && nic_number.trim() !== '') {
-            const existing = queryOne('SELECT id FROM patients WHERE nic_number = ?', [nic_number.trim()]);
+            const existing = await queryOne('SELECT id FROM patients WHERE nic_number = ?', [nic_number.trim()]);
             if (existing) {
                 return res.render('patients/add', {
                     title: 'Register New Patient',
@@ -200,9 +200,9 @@ router.post('/add', [
             }
         }
 
-        const uid = patient_uid && patient_uid.trim() ? patient_uid.trim() : generatePatientUID();
+        const uid = patient_uid && patient_uid.trim() ? patient_uid.trim() : await generatePatientUID();
 
-        const result = execute(
+        const result = await execute(
             `INSERT INTO patients (
                 patient_uid, first_name, last_name, date_of_birth, gender,
                 nic_number, blood_group, phone, email, address, city,
@@ -222,7 +222,7 @@ router.post('/add', [
             ]
         );
 
-        auditLog(req.session.user.id, 'PATIENT_REGISTERED', 'patients', result.lastInsertRowid, `Registered ${first_name} ${last_name} (${uid})`, req.ip);
+        await auditLog(req.session.user.id, 'PATIENT_REGISTERED', 'patients', result.lastInsertRowid, `Registered ${first_name} ${last_name} (${uid})`, req.ip);
 
         req.session.successMessage = `Patient ${first_name} ${last_name} (${uid}) registered successfully!`;
         res.redirect(`/patients/view/${uid}`);
@@ -232,7 +232,7 @@ router.post('/add', [
         res.render('patients/add', {
             title: 'Register New Patient',
             activeMenu: 'patients',
-            patientUID: req.body.patient_uid || generatePatientUID(),
+            patientUID: req.body.patient_uid || await generatePatientUID(),
             errors: [{ msg: 'An unexpected database error occurred. Please try again.' }],
             formData: req.body,
             currentUser: req.session.user
@@ -243,25 +243,22 @@ router.post('/add', [
 // -------------------------------------------------
 // GET /patients/view/:id — View Patient Details & Medical History
 // -------------------------------------------------
-router.get('/view/:id', (req, res) => {
+router.get('/view/:id', async (req, res) => {
     const patientId = req.params.id;
 
     try {
-        // Query patient by patient_uid or numeric ID
-        const patient = queryOne(`
+        const patient = await queryOne(`
             SELECT p.*, u.full_name as registered_by_name
             FROM patients p
             LEFT JOIN users u ON p.registered_by = u.id
             WHERE p.patient_uid = ? OR p.id = ?
         `, [patientId, patientId]);
 
-        // Guard against missing patient records
         if (!patient) {
             req.session.errorMessage = `Patient record "${patientId}" not found.`;
             return res.redirect('/patients');
         }
 
-        // Calculate patient age from date of birth
         let age = 'N/A';
         if (patient.date_of_birth) {
             const dob = new Date(patient.date_of_birth);
@@ -273,8 +270,7 @@ router.get('/view/:id', (req, res) => {
         }
         patient.age = age;
 
-        // Fetch Medical History Records using numeric primary key ID
-        const medicalRecords = queryAll(`
+        const medicalRecords = await queryAll(`
             SELECT mh.*, u.full_name as doctor_name, doc.specialization
             FROM medical_history mh
             LEFT JOIN doctors doc ON mh.doctor_id = doc.id
@@ -284,8 +280,7 @@ router.get('/view/:id', (req, res) => {
             ORDER BY mh.visit_date DESC, mh.created_at DESC
         `, [patient.id]) || [];
 
-        // Fetch Appointments History using numeric primary key ID
-        const appointments = queryAll(`
+        const appointments = await queryAll(`
             SELECT a.*, u.full_name as doctor_name, dep.department_name
             FROM appointments a
             LEFT JOIN doctors doc ON a.doctor_id = doc.id
@@ -295,13 +290,11 @@ router.get('/view/:id', (req, res) => {
             ORDER BY a.appointment_date DESC
         `, [patient.id]) || [];
 
-        // Fetch Billing History using numeric primary key ID
-        const invoices = queryAll(`
+        const invoices = await queryAll(`
             SELECT * FROM billing WHERE patient_id = ? ORDER BY invoice_date DESC
         `, [patient.id]) || [];
 
-        // Fetch available Doctors for new clinical record modal
-        const doctors = queryAll(`
+        const doctors = await queryAll(`
             SELECT doc.id, u.full_name, doc.specialization
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
@@ -333,11 +326,11 @@ router.get('/view/:id', (req, res) => {
 // -------------------------------------------------
 // GET /patients/edit/:id — Show Edit Patient Form
 // -------------------------------------------------
-router.get('/edit/:id', (req, res) => {
+router.get('/edit/:id', async (req, res) => {
     const patientId = req.params.id;
 
     try {
-        const patient = queryOne('SELECT * FROM patients WHERE patient_uid = ? OR id = ?', [patientId, patientId]);
+        const patient = await queryOne('SELECT * FROM patients WHERE patient_uid = ? OR id = ?', [patientId, patientId]);
 
         if (!patient) {
             req.session.errorMessage = 'Patient not found.';
@@ -386,7 +379,7 @@ router.post('/edit/:id', [
         }
         return true;
     })
-], (req, res) => {
+], async (req, res) => {
     const patientId = req.params.id;
     const errors = validationResult(req);
 
@@ -408,13 +401,13 @@ router.post('/edit/:id', [
     } = req.body;
 
     try {
-        const existingPatient = queryOne('SELECT id, patient_uid FROM patients WHERE patient_uid = ? OR id = ?', [patientId, patientId]);
+        const existingPatient = await queryOne('SELECT id, patient_uid FROM patients WHERE patient_uid = ? OR id = ?', [patientId, patientId]);
         if (!existingPatient) {
             req.session.errorMessage = 'Patient record not found.';
             return res.redirect('/patients');
         }
 
-        execute(
+        await execute(
             `UPDATE patients SET
                 first_name = ?, last_name = ?, date_of_birth = ?, gender = ?,
                 nic_number = ?, blood_group = ?, phone = ?, email = ?,
@@ -435,7 +428,7 @@ router.post('/edit/:id', [
             ]
         );
 
-        auditLog(req.session.user.id, 'PATIENT_UPDATED', 'patients', existingPatient.id, `Updated ${first_name} ${last_name}`, req.ip);
+        await auditLog(req.session.user.id, 'PATIENT_UPDATED', 'patients', existingPatient.id, `Updated ${first_name} ${last_name}`, req.ip);
 
         req.session.successMessage = `Patient information for ${first_name} ${last_name} updated successfully.`;
         res.redirect(`/patients/view/${existingPatient.patient_uid}`);
@@ -454,7 +447,7 @@ router.post('/medical-history/add', [
     body('patient_id').notEmpty().withMessage('Patient ID is required'),
     body('visit_date').notEmpty().withMessage('Visit date is required'),
     body('diagnosis').trim().notEmpty().withMessage('Diagnosis is required')
-], (req, res) => {
+], async (req, res) => {
     const {
         patient_id, doctor_id, visit_date, diagnosis, symptoms,
         treatment_plan, prescription, doctor_notes,
@@ -462,7 +455,7 @@ router.post('/medical-history/add', [
     } = req.body;
 
     try {
-        execute(
+        await execute(
             `INSERT INTO medical_history (
                 patient_id, doctor_id, visit_date, diagnosis, symptoms,
                 treatment_plan, prescription, doctor_notes,
@@ -479,9 +472,9 @@ router.post('/medical-history/add', [
             ]
         );
 
-        auditLog(req.session.user.id, 'MEDICAL_RECORD_ADDED', 'patients', patient_id, `Added medical record: ${diagnosis}`, req.ip);
+        await auditLog(req.session.user.id, 'MEDICAL_RECORD_ADDED', 'patients', patient_id, `Added medical record: ${diagnosis}`, req.ip);
 
-        const pObj = queryOne('SELECT patient_uid FROM patients WHERE id = ? OR patient_uid = ?', [patient_id, patient_id]);
+        const pObj = await queryOne('SELECT patient_uid FROM patients WHERE id = ? OR patient_uid = ?', [patient_id, patient_id]);
         const redirectUid = pObj ? pObj.patient_uid : patient_id;
 
         req.session.successMessage = 'New medical record added successfully.';
@@ -490,7 +483,7 @@ router.post('/medical-history/add', [
     } catch (err) {
         console.error('Add medical history error:', err);
         req.session.errorMessage = 'Failed to add medical record.';
-        const pObj = queryOne('SELECT patient_uid FROM patients WHERE id = ? OR patient_uid = ?', [patient_id, patient_id]);
+        const pObj = await queryOne('SELECT patient_uid FROM patients WHERE id = ? OR patient_uid = ?', [patient_id, patient_id]);
         const redirectUid = pObj ? pObj.patient_uid : patient_id;
         res.redirect(`/patients/view/${redirectUid}`);
     }
@@ -499,17 +492,17 @@ router.post('/medical-history/add', [
 // -------------------------------------------------
 // POST /patients/toggle-status/:id — Toggle Active Status
 // -------------------------------------------------
-router.post('/toggle-status/:id', (req, res) => {
+router.post('/toggle-status/:id', async (req, res) => {
     const patientId = req.params.id;
 
     try {
-        const patient = queryOne('SELECT is_active, first_name, last_name FROM patients WHERE id = ?', [patientId]);
+        const patient = await queryOne('SELECT is_active, first_name, last_name FROM patients WHERE id = ?', [patientId]);
         if (patient) {
             const newStatus = patient.is_active === 1 ? 0 : 1;
-            execute('UPDATE patients SET is_active = ?, updated_at = ? WHERE id = ?', [newStatus, getSLTimestamp(), patientId]);
+            await execute('UPDATE patients SET is_active = ?, updated_at = ? WHERE id = ?', [newStatus, getSLTimestamp(), patientId]);
 
             const statusText = newStatus === 1 ? 'activated' : 'deactivated';
-            auditLog(req.session.user.id, 'PATIENT_STATUS_CHANGED', 'patients', patientId, `Patient ${statusText}`, req.ip);
+            await auditLog(req.session.user.id, 'PATIENT_STATUS_CHANGED', 'patients', patientId, `Patient ${statusText}`, req.ip);
 
             req.session.successMessage = `Patient ${patient.first_name} ${patient.last_name} ${statusText}.`;
         }

@@ -1,5 +1,5 @@
 // =====================================================
-// Appointment Management Routes (Booking, Rescheduling, Status Tracking)
+// Appointment Management Routes (Booking, Rescheduling, Status Tracking) - MySQL Async
 // =====================================================
 const express = require('express');
 const router = express.Router();
@@ -8,9 +8,9 @@ const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db'
 const { isAuthenticated, authorize } = require('../middleware/auth');
 
 // Audit log helper (using Sri Lanka Standard Time)
-function auditLog(userId, action, entity, entityId, details, ip) {
+async function auditLog(userId, action, entity, entityId, details, ip) {
     try {
-        execute(
+        await execute(
             `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [userId, action, entity, entityId, details, ip, getSLTimestamp()]
         );
@@ -20,9 +20,9 @@ function auditLog(userId, action, entity, entityId, details, ip) {
 }
 
 // Generate unique appointment number (APT-YYYY-XXXX)
-function generateAppointmentNumber() {
+async function generateAppointmentNumber() {
     const year = new Date().getFullYear();
-    const countResult = queryOne('SELECT COUNT(*) as total FROM appointments');
+    const countResult = await queryOne('SELECT COUNT(*) as total FROM appointments');
     const nextNum = (countResult ? countResult.total + 1 : 1).toString().padStart(4, '0');
     return `APT-${year}-${nextNum}`;
 }
@@ -34,7 +34,7 @@ router.use(authorize('Administrator', 'Doctor', 'Nurse', 'Receptionist'));
 // -------------------------------------------------
 // GET /appointments — List & Schedule Calendar View
 // -------------------------------------------------
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const viewMode = req.query.view || 'list'; // 'list' or 'schedule'
     const search = req.query.search ? req.query.search.trim() : '';
     const status = req.query.status || '';
@@ -79,10 +79,10 @@ router.get('/', (req, res) => {
     sql += ` ORDER BY a.appointment_date DESC, a.appointment_time ASC`;
 
     try {
-        const appointments = queryAll(sql, params) || [];
+        const appointments = await queryAll(sql, params) || [];
 
         // Active doctors for filter dropdown
-        const doctors = queryAll(`
+        const doctors = await queryAll(`
             SELECT doc.id, u.full_name, doc.specialization, d.department_name
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
@@ -96,11 +96,11 @@ router.get('/', (req, res) => {
 
         // Overall stats
         const stats = {
-            total: queryOne('SELECT COUNT(*) as cnt FROM appointments')?.cnt || 0,
-            today: queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE appointment_date = ? AND status != "Cancelled"', [todayStr])?.cnt || 0,
-            scheduled: queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Scheduled"')?.cnt || 0,
-            completed: queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Completed"')?.cnt || 0,
-            cancelled: queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Cancelled"')?.cnt || 0
+            total: (await queryOne('SELECT COUNT(*) as cnt FROM appointments'))?.cnt || 0,
+            today: (await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE appointment_date = ? AND status != "Cancelled"', [todayStr]))?.cnt || 0,
+            scheduled: (await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Scheduled"'))?.cnt || 0,
+            completed: (await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Completed"'))?.cnt || 0,
+            cancelled: (await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Cancelled"'))?.cnt || 0
         };
 
         res.render('appointments/index', {
@@ -131,17 +131,17 @@ router.get('/', (req, res) => {
 // -------------------------------------------------
 // GET /appointments/book — Show Book Appointment Form
 // -------------------------------------------------
-router.get('/book', (req, res) => {
+router.get('/book', async (req, res) => {
     const prePatientId = req.query.patient_id || '';
     const preDoctorId = req.query.doctor_id || '';
     const preDate = req.query.date || new Date().toISOString().split('T')[0];
     const preTime = req.query.time || '09:00 AM';
 
     try {
-        const autoNumber = generateAppointmentNumber();
+        const autoNumber = await generateAppointmentNumber();
 
         // Fetch active patients
-        const patients = queryAll(`
+        const patients = await queryAll(`
             SELECT id, patient_uid, first_name, last_name, phone, nic_number
             FROM patients
             WHERE is_active = 1
@@ -149,7 +149,7 @@ router.get('/book', (req, res) => {
         `) || [];
 
         // Fetch available doctors
-        const doctors = queryAll(`
+        const doctors = await queryAll(`
             SELECT doc.id, u.full_name, doc.specialization, doc.room_number, doc.consultation_fee, d.department_name
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
@@ -192,17 +192,17 @@ router.post('/book', [
     body('doctor_id').notEmpty().withMessage('Doctor selection is required'),
     body('appointment_date').notEmpty().isISO8601().withMessage('Valid appointment date is required'),
     body('appointment_time').notEmpty().withMessage('Appointment time slot is required')
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
 
-    const patients = queryAll('SELECT id, patient_uid, first_name, last_name, phone FROM patients WHERE is_active = 1 ORDER BY first_name ASC') || [];
-    const doctors = queryAll('SELECT doc.id, u.full_name, doc.specialization, doc.room_number, doc.consultation_fee, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
+    const patients = await queryAll('SELECT id, patient_uid, first_name, last_name, phone FROM patients WHERE is_active = 1 ORDER BY first_name ASC') || [];
+    const doctors = await queryAll('SELECT doc.id, u.full_name, doc.specialization, doc.room_number, doc.consultation_fee, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
 
     if (!errors.isEmpty()) {
         return res.render('appointments/book', {
             title: 'Book New Appointment',
             activeMenu: 'appointments',
-            autoNumber: req.body.appointment_number || generateAppointmentNumber(),
+            autoNumber: req.body.appointment_number || await generateAppointmentNumber(),
             patients,
             doctors,
             prePatientId: req.body.patient_id || '',
@@ -219,7 +219,7 @@ router.post('/book', [
 
     try {
         // Conflict Check: Check if doctor is already booked at the exact same date & time
-        const conflict = queryOne(`
+        const conflict = await queryOne(`
             SELECT id FROM appointments 
             WHERE doctor_id = ? AND appointment_date = ? AND appointment_time = ? AND status = 'Scheduled'
         `, [doctor_id, appointment_date, appointment_time]);
@@ -228,7 +228,7 @@ router.post('/book', [
             return res.render('appointments/book', {
                 title: 'Book New Appointment',
                 activeMenu: 'appointments',
-                autoNumber: appointment_number || generateAppointmentNumber(),
+                autoNumber: appointment_number || await generateAppointmentNumber(),
                 patients,
                 doctors,
                 prePatientId: patient_id,
@@ -241,9 +241,9 @@ router.post('/book', [
             });
         }
 
-        const aptNum = appointment_number && appointment_number.trim() ? appointment_number.trim() : generateAppointmentNumber();
+        const aptNum = appointment_number && appointment_number.trim() ? appointment_number.trim() : await generateAppointmentNumber();
 
-        const result = execute(`
+        const result = await execute(`
             INSERT INTO appointments (
                 appointment_number, patient_id, doctor_id, appointment_date, appointment_time,
                 status, reason, notes, created_by, created_at, updated_at
@@ -257,7 +257,7 @@ router.post('/book', [
             getSLTimestamp()
         ]);
 
-        auditLog(req.session.user.id, 'APPOINTMENT_BOOKED', 'appointments', result.lastInsertRowid, `Booked appointment ${aptNum} for date ${appointment_date} at ${appointment_time}`, req.ip);
+        await auditLog(req.session.user.id, 'APPOINTMENT_BOOKED', 'appointments', result.lastInsertRowid, `Booked appointment ${aptNum} for date ${appointment_date} at ${appointment_time}`, req.ip);
 
         req.session.successMessage = `Appointment ${aptNum} booked successfully!`;
         res.redirect(`/appointments/view/${result.lastInsertRowid}`);
@@ -267,7 +267,7 @@ router.post('/book', [
         res.render('appointments/book', {
             title: 'Book New Appointment',
             activeMenu: 'appointments',
-            autoNumber: req.body.appointment_number || generateAppointmentNumber(),
+            autoNumber: req.body.appointment_number || await generateAppointmentNumber(),
             patients,
             doctors,
             prePatientId: req.body.patient_id || '',
@@ -284,11 +284,11 @@ router.post('/book', [
 // -------------------------------------------------
 // GET /appointments/view/:id — View Appointment Details
 // -------------------------------------------------
-router.get('/view/:id', (req, res) => {
+router.get('/view/:id', async (req, res) => {
     const aptId = req.params.id;
 
     try {
-        const appointment = queryOne(`
+        const appointment = await queryOne(`
             SELECT a.*, 
                    p.patient_uid, p.first_name as patient_first_name, p.last_name as patient_last_name, p.phone as patient_phone, p.email as patient_email, p.gender as patient_gender, p.date_of_birth, p.blood_group, p.id as patient_pk,
                    u.full_name as doctor_name, doc.specialization, doc.room_number, doc.consultation_fee, doc.id as doctor_pk,
@@ -308,7 +308,7 @@ router.get('/view/:id', (req, res) => {
         }
 
         // Fetch recent medical history for patient context
-        const medicalRecords = queryAll(`
+        const medicalRecords = await queryAll(`
             SELECT * FROM medical_history WHERE patient_id = ? ORDER BY visit_date DESC LIMIT 3
         `, [appointment.patient_pk]) || [];
 
@@ -334,7 +334,7 @@ router.get('/view/:id', (req, res) => {
 // -------------------------------------------------
 // POST /appointments/status/:id — Update Status (Completed, Cancelled, No-Show)
 // -------------------------------------------------
-router.post('/status/:id', (req, res) => {
+router.post('/status/:id', async (req, res) => {
     const aptId = req.params.id;
     const { status, notes } = req.body;
 
@@ -345,17 +345,17 @@ router.post('/status/:id', (req, res) => {
     }
 
     try {
-        const apt = queryOne('SELECT appointment_number FROM appointments WHERE id = ?', [aptId]);
+        const apt = await queryOne('SELECT appointment_number FROM appointments WHERE id = ?', [aptId]);
         if (!apt) {
             req.session.errorMessage = 'Appointment record not found.';
             return res.redirect('/appointments');
         }
 
-        execute(`
+        await execute(`
             UPDATE appointments SET status = ?, notes = COALESCE(?, notes), updated_at = ? WHERE id = ?
         `, [status, notes ? notes.trim() : null, getSLTimestamp(), aptId]);
 
-        auditLog(req.session.user.id, `APPOINTMENT_${status.toUpperCase()}`, 'appointments', aptId, `Appointment ${apt.appointment_number} marked as ${status}`, req.ip);
+        await auditLog(req.session.user.id, `APPOINTMENT_${status.toUpperCase()}`, 'appointments', aptId, `Appointment ${apt.appointment_number} marked as ${status}`, req.ip);
 
         req.session.successMessage = `Appointment ${apt.appointment_number} marked as ${status}.`;
         res.redirect(`/appointments/view/${aptId}`);
@@ -370,11 +370,11 @@ router.post('/status/:id', (req, res) => {
 // -------------------------------------------------
 // GET /appointments/reschedule/:id — Show Reschedule Form
 // -------------------------------------------------
-router.get('/reschedule/:id', (req, res) => {
+router.get('/reschedule/:id', async (req, res) => {
     const aptId = req.params.id;
 
     try {
-        const appointment = queryOne(`
+        const appointment = await queryOne(`
             SELECT a.*, 
                    p.patient_uid, p.first_name as patient_first_name, p.last_name as patient_last_name,
                    u.full_name as doctor_name, doc.specialization, d.department_name
@@ -391,7 +391,7 @@ router.get('/reschedule/:id', (req, res) => {
             return res.redirect('/appointments');
         }
 
-        const doctors = queryAll(`
+        const doctors = await queryAll(`
             SELECT doc.id, u.full_name, doc.specialization, d.department_name
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
@@ -422,13 +422,13 @@ router.post('/reschedule/:id', [
     body('doctor_id').notEmpty().withMessage('Doctor selection is required'),
     body('appointment_date').notEmpty().isISO8601().withMessage('Valid appointment date is required'),
     body('appointment_time').notEmpty().withMessage('Appointment time slot is required')
-], (req, res) => {
+], async (req, res) => {
     const aptId = req.params.id;
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
         const appointment = { ...req.body, id: aptId };
-        const doctors = queryAll('SELECT doc.id, u.full_name, doc.specialization, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
+        const doctors = await queryAll('SELECT doc.id, u.full_name, doc.specialization, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
         return res.render('appointments/reschedule', {
             title: 'Reschedule Appointment',
             activeMenu: 'appointments',
@@ -442,20 +442,20 @@ router.post('/reschedule/:id', [
     const { doctor_id, appointment_date, appointment_time, reason, notes } = req.body;
 
     try {
-        const existingApt = queryOne('SELECT appointment_number FROM appointments WHERE id = ?', [aptId]);
+        const existingApt = await queryOne('SELECT appointment_number FROM appointments WHERE id = ?', [aptId]);
         if (!existingApt) {
             req.session.errorMessage = 'Appointment not found.';
             return res.redirect('/appointments');
         }
 
         // Conflict check excluding current appointment
-        const conflict = queryOne(`
+        const conflict = await queryOne(`
             SELECT id FROM appointments
             WHERE doctor_id = ? AND appointment_date = ? AND appointment_time = ? AND status = 'Scheduled' AND id != ?
         `, [doctor_id, appointment_date, appointment_time, aptId]);
 
         if (conflict) {
-            const doctors = queryAll('SELECT doc.id, u.full_name, doc.specialization, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
+            const doctors = await queryAll('SELECT doc.id, u.full_name, doc.specialization, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
             const appointment = { ...req.body, id: aptId, appointment_number: existingApt.appointment_number };
             return res.render('appointments/reschedule', {
                 title: 'Reschedule Appointment',
@@ -467,7 +467,7 @@ router.post('/reschedule/:id', [
             });
         }
 
-        execute(`
+        await execute(`
             UPDATE appointments SET
                 doctor_id = ?, appointment_date = ?, appointment_time = ?,
                 status = 'Scheduled', reason = COALESCE(?, reason), notes = COALESCE(?, notes),
@@ -475,7 +475,7 @@ router.post('/reschedule/:id', [
             WHERE id = ?
         `, [doctor_id, appointment_date, appointment_time, reason ? reason.trim() : null, notes ? notes.trim() : null, getSLTimestamp(), aptId]);
 
-        auditLog(req.session.user.id, 'APPOINTMENT_RESCHEDULED', 'appointments', aptId, `Rescheduled ${existingApt.appointment_number} to ${appointment_date} at ${appointment_time}`, req.ip);
+        await auditLog(req.session.user.id, 'APPOINTMENT_RESCHEDULED', 'appointments', aptId, `Rescheduled ${existingApt.appointment_number} to ${appointment_date} at ${appointment_time}`, req.ip);
 
         req.session.successMessage = `Appointment ${existingApt.appointment_number} rescheduled successfully.`;
         res.redirect(`/appointments/view/${aptId}`);

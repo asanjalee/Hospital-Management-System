@@ -1,5 +1,5 @@
 // =====================================================
-// Pharmacy Management Router
+// Pharmacy Management Router - MySQL Async
 // =====================================================
 const express = require('express');
 const router = express.Router();
@@ -8,9 +8,9 @@ const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db'
 const { isAuthenticated, authorize } = require('../middleware/auth');
 
 // Audit log helper (Sri Lanka Standard Time)
-function auditLog(userId, action, entity, entityId, details, ip) {
+async function auditLog(userId, action, entity, entityId, details, ip) {
     try {
-        execute(
+        await execute(
             `INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [userId, action, entity, entityId, details, ip, getSLTimestamp()]
         );
@@ -20,8 +20,8 @@ function auditLog(userId, action, entity, entityId, details, ip) {
 }
 
 // Generate unique medicine code (MED-XXX)
-function generateMedicineCode() {
-    const countResult = queryOne('SELECT COUNT(*) as total FROM medicines');
+async function generateMedicineCode() {
+    const countResult = await queryOne('SELECT COUNT(*) as total FROM medicines');
     const nextNum = (countResult ? countResult.total + 1 : 1).toString().padStart(3, '0');
     return `MED-${nextNum}`;
 }
@@ -33,7 +33,7 @@ router.use(authorize('Administrator', 'Pharmacist', 'Doctor', 'Nurse'));
 // -------------------------------------------------
 // GET /pharmacy — Medicine Inventory Directory
 // -------------------------------------------------
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const search = req.query.search ? req.query.search.trim() : '';
     const category = req.query.category || '';
     const filter = req.query.filter || ''; // 'low_stock' | 'expiring'
@@ -55,21 +55,21 @@ router.get('/', (req, res) => {
     if (filter === 'low_stock') {
         sql += ` AND stock_quantity <= reorder_level`;
     } else if (filter === 'expiring') {
-        sql += ` AND expiry_date <= date('now', '+60 days')`;
+        sql += ` AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)`;
     }
 
     sql += ` ORDER BY name ASC`;
 
     try {
-        const medicines = queryAll(sql, params) || [];
+        const medicines = await queryAll(sql, params) || [];
 
-        const categories = queryAll(`SELECT DISTINCT category FROM medicines WHERE is_active = 1 AND category IS NOT NULL AND category != '' ORDER BY category ASC`) || [];
+        const categories = await queryAll(`SELECT DISTINCT category FROM medicines WHERE is_active = 1 AND category IS NOT NULL AND category != '' ORDER BY category ASC`) || [];
 
         const stats = {
-            totalItems: queryOne('SELECT COUNT(*) as cnt FROM medicines WHERE is_active = 1')?.cnt || 0,
-            lowStock: queryOne('SELECT COUNT(*) as cnt FROM medicines WHERE is_active = 1 AND stock_quantity <= reorder_level')?.cnt || 0,
-            expiring: queryOne('SELECT COUNT(*) as cnt FROM medicines WHERE is_active = 1 AND expiry_date <= date("now", "+60 days")')?.cnt || 0,
-            totalValue: queryOne('SELECT SUM(unit_price * stock_quantity) as total FROM medicines WHERE is_active = 1')?.total || 0
+            totalItems: (await queryOne('SELECT COUNT(*) as cnt FROM medicines WHERE is_active = 1'))?.cnt || 0,
+            lowStock: (await queryOne('SELECT COUNT(*) as cnt FROM medicines WHERE is_active = 1 AND stock_quantity <= reorder_level'))?.cnt || 0,
+            expiring: (await queryOne('SELECT COUNT(*) as cnt FROM medicines WHERE is_active = 1 AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)'))?.cnt || 0,
+            totalValue: (await queryOne('SELECT SUM(unit_price * stock_quantity) as total FROM medicines WHERE is_active = 1'))?.total || 0
         };
 
         res.render('pharmacy/index', {
@@ -97,8 +97,8 @@ router.get('/', (req, res) => {
 // -------------------------------------------------
 // GET /pharmacy/add — Show Add Medicine Form
 // -------------------------------------------------
-router.get('/add', (req, res) => {
-    const autoCode = generateMedicineCode();
+router.get('/add', async (req, res) => {
+    const autoCode = await generateMedicineCode();
     res.render('pharmacy/add', {
         title: 'Add New Medicine',
         activeMenu: 'pharmacy',
@@ -118,14 +118,14 @@ router.post('/add', [
     body('unit_price').isFloat({ min: 0.01 }).withMessage('Unit price must be greater than 0.00'),
     body('stock_quantity').isInt({ min: 0 }).withMessage('Stock quantity must be a non-negative integer'),
     body('reorder_level').isInt({ min: 0 }).withMessage('Reorder level must be a non-negative integer')
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
         return res.render('pharmacy/add', {
             title: 'Add New Medicine',
             activeMenu: 'pharmacy',
-            autoCode: req.body.medicine_code || generateMedicineCode(),
+            autoCode: req.body.medicine_code || await generateMedicineCode(),
             errors: errors.array(),
             formData: req.body,
             currentUser: req.session.user
@@ -135,9 +135,9 @@ router.post('/add', [
     const { medicine_code, name, generic_name, category, unit_price, stock_quantity, reorder_level, expiry_date, manufacturer } = req.body;
 
     try {
-        const code = medicine_code && medicine_code.trim() ? medicine_code.trim() : generateMedicineCode();
+        const code = medicine_code && medicine_code.trim() ? medicine_code.trim() : await generateMedicineCode();
 
-        const result = execute(`
+        const result = await execute(`
             INSERT INTO medicines (
                 medicine_code, name, generic_name, category, unit_price,
                 stock_quantity, reorder_level, expiry_date, manufacturer, is_active, created_at
@@ -155,7 +155,7 @@ router.post('/add', [
             getSLTimestamp()
         ]);
 
-        auditLog(req.session.user.id, 'MEDICINE_ADDED', 'medicines', result.lastInsertRowid, `Added medicine ${name} (${code}) to pharmacy inventory`, req.ip);
+        await auditLog(req.session.user.id, 'MEDICINE_ADDED', 'medicines', result.lastInsertRowid, `Added medicine ${name} (${code}) to pharmacy inventory`, req.ip);
 
         req.session.successMessage = `Medicine "${name}" (${code}) added to inventory!`;
         res.redirect('/pharmacy');
@@ -170,11 +170,11 @@ router.post('/add', [
 // -------------------------------------------------
 // GET /pharmacy/edit/:id — Show Edit Medicine Form
 // -------------------------------------------------
-router.get('/edit/:id', (req, res) => {
+router.get('/edit/:id', async (req, res) => {
     const medId = req.params.id;
 
     try {
-        const medicine = queryOne(`SELECT * FROM medicines WHERE id = ?`, [medId]);
+        const medicine = await queryOne(`SELECT * FROM medicines WHERE id = ?`, [medId]);
         if (!medicine) {
             req.session.errorMessage = 'Medicine not found.';
             return res.redirect('/pharmacy');
@@ -201,7 +201,7 @@ router.post('/edit/:id', [
     body('name').trim().notEmpty().withMessage('Medicine Name is required'),
     body('unit_price').isFloat({ min: 0.01 }).withMessage('Unit price must be greater than 0.00'),
     body('stock_quantity').isInt({ min: 0 }).withMessage('Stock quantity must be a non-negative integer')
-], (req, res) => {
+], async (req, res) => {
     const medId = req.params.id;
     const errors = validationResult(req);
 
@@ -219,7 +219,7 @@ router.post('/edit/:id', [
     const { name, generic_name, category, unit_price, stock_quantity, reorder_level, expiry_date, manufacturer } = req.body;
 
     try {
-        execute(`
+        await execute(`
             UPDATE medicines SET
                 name = ?, generic_name = ?, category = ?, unit_price = ?,
                 stock_quantity = ?, reorder_level = ?, expiry_date = ?, manufacturer = ?,
@@ -238,7 +238,7 @@ router.post('/edit/:id', [
             medId
         ]);
 
-        auditLog(req.session.user.id, 'MEDICINE_UPDATED', 'medicines', medId, `Updated stock/price details for ${name} (Stock: ${stock_quantity})`, req.ip);
+        await auditLog(req.session.user.id, 'MEDICINE_UPDATED', 'medicines', medId, `Updated stock/price details for ${name} (Stock: ${stock_quantity})`, req.ip);
 
         req.session.successMessage = `Medicine "${name}" updated successfully.`;
         res.redirect('/pharmacy');
@@ -253,12 +253,12 @@ router.post('/edit/:id', [
 // -------------------------------------------------
 // GET /pharmacy/dispense — Prescription Fulfillment Screen
 // -------------------------------------------------
-router.get('/dispense', (req, res) => {
+router.get('/dispense', async (req, res) => {
     const prePatientId = req.query.patient_id || '';
 
     try {
-        const patients = queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
-        const medicines = queryAll(`SELECT id, medicine_code, name, category, unit_price, stock_quantity FROM medicines WHERE is_active = 1 AND stock_quantity > 0 ORDER BY name ASC`) || [];
+        const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
+        const medicines = await queryAll(`SELECT id, medicine_code, name, category, unit_price, stock_quantity FROM medicines WHERE is_active = 1 AND stock_quantity > 0 ORDER BY name ASC`) || [];
 
         res.render('pharmacy/dispense', {
             title: 'Dispense Medicine / Fulfill Prescription',
@@ -284,12 +284,12 @@ router.post('/dispense', [
     body('patient_id').notEmpty().withMessage('Patient selection is required'),
     body('medicine_id').notEmpty().withMessage('Medicine selection is required'),
     body('quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1')
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
-        const patients = queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
-        const medicines = queryAll(`SELECT id, medicine_code, name, category, unit_price, stock_quantity FROM medicines WHERE is_active = 1 AND stock_quantity > 0 ORDER BY name ASC`) || [];
+        const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
+        const medicines = await queryAll(`SELECT id, medicine_code, name, category, unit_price, stock_quantity FROM medicines WHERE is_active = 1 AND stock_quantity > 0 ORDER BY name ASC`) || [];
         return res.render('pharmacy/dispense', {
             title: 'Dispense Medicine / Fulfill Prescription',
             activeMenu: 'pharmacy',
@@ -306,7 +306,7 @@ router.post('/dispense', [
     const qtyToDispense = parseInt(quantity);
 
     try {
-        const med = queryOne(`SELECT * FROM medicines WHERE id = ?`, [medicine_id]);
+        const med = await queryOne(`SELECT * FROM medicines WHERE id = ?`, [medicine_id]);
         if (!med) {
             req.session.errorMessage = 'Selected medicine is not available.';
             return res.redirect('/pharmacy/dispense');
@@ -319,11 +319,11 @@ router.post('/dispense', [
 
         // Deduct inventory stock
         const newQty = med.stock_quantity - qtyToDispense;
-        execute(`UPDATE medicines SET stock_quantity = ?, updated_at = ? WHERE id = ?`, [newQty, getSLTimestamp(), medicine_id]);
+        await execute(`UPDATE medicines SET stock_quantity = ?, updated_at = ? WHERE id = ?`, [newQty, getSLTimestamp(), medicine_id]);
 
         const totalCost = (med.unit_price * qtyToDispense).toFixed(2);
 
-        auditLog(req.session.user.id, 'MEDICINE_DISPENSED', 'medicines', medicine_id, `Dispensed ${qtyToDispense} units of ${med.name} to patient ID #${patient_id} (Total: LKR ${totalCost})`, req.ip);
+        await auditLog(req.session.user.id, 'MEDICINE_DISPENSED', 'medicines', medicine_id, `Dispensed ${qtyToDispense} units of ${med.name} to patient ID #${patient_id} (Total: LKR ${totalCost})`, req.ip);
 
         req.session.successMessage = `Successfully dispensed ${qtyToDispense} x ${med.name} (Total: LKR ${totalCost}). Inventory stock remaining: ${newQty}.`;
         res.redirect('/pharmacy');
