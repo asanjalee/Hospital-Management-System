@@ -59,7 +59,7 @@ router.get('/', async (req, res) => {
         params.push(availability);
     }
 
-    sql += ` ORDER BY u.full_name ASC`;
+    sql += ` ORDER BY doc.id DESC`;
 
     try {
         const doctors = await queryAll(sql, params) || [];
@@ -82,13 +82,8 @@ router.get('/', async (req, res) => {
                 available: availableDoctors.cnt,
                 departmentsCount: departments.length
             },
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('Doctor list error:', err);
         res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });
@@ -259,13 +254,8 @@ router.get('/view/:id', async (req, res) => {
                 completed: completedAppts,
                 scheduled: scheduledAppts
             },
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('View doctor error:', err);
         req.session.errorMessage = `Could not retrieve details for doctor.`;

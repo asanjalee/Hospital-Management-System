@@ -81,13 +81,8 @@ router.get('/', async (req, res) => {
             category,
             filter,
             stats,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('Pharmacy index error:', err);
         res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });

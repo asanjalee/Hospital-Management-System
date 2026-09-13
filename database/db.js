@@ -553,16 +553,72 @@ async function seedData() {
         VALUES (?, 'Consultation', 'Doctor Consultation - Dr. Sarah Jenkins', 1, 4000.00, 4000.00)
     `, [inv2Id]);
 
-    // 11. Sample Staff Members (Staff Management Module)
+    // 4b. Receptionist user account
+    // Credentials: username=receptionist | password=Recep@2026!
+    const hashedReception = bcrypt.hashSync('Recep@2026!', 10);
+    await p.query(`
+        INSERT INTO users (username, email, password_hash, full_name, role_id, department_id, phone, is_active)
+        VALUES ('receptionist', 'reception@hospital.com', ?, 'Front Desk Receptionist', ?, ?, '+94 11 2345670', 1)
+    `, [hashedReception, roleMap['Receptionist'], deptMap['Administration']]);
+
+    // 11. Sample Staff Members + matching user login accounts
+    // Each staff account has a UNIQUE password to meet professional security standards:
+    //   Sister Mary Fernando  => username: mary.fernando  | password: Nurse@HMS2026
+    //   Kusal Mendis          => username: kusal.mendis   | password: Acct@HMS2026
+    //   Dilshan Pradeep       => username: dilshan.pradeep| password: Pharm@HMS2026
+    //   Anura Dissanayake     => username: anura.dissanayake | password: LabTech@HMS26
+
     const sampleStaff = [
-        { code: 'EMP-2026-0001', first: 'Sister Mary', last: 'Fernando', email: 'mary.f@hospital.com', phone: '+94 77 3334455', nic: '198278900111', role: roleMap['Nurse'], dept: deptMap['General Medicine'], desig: 'Head Nursing Officer', join: '2020-03-15', sal: 95000.00, status: 'Full-Time' },
-        { code: 'EMP-2026-0002', first: 'Kusal', last: 'Mendis', email: 'kusal.m@hospital.com', phone: '+94 71 5556677', nic: '199012300222', role: roleMap['Accountant'], dept: deptMap['Administration'], desig: 'Senior Financial Accountant', join: '2021-07-01', sal: 120000.00, status: 'Full-Time' },
-        { code: 'EMP-2026-0003', first: 'Dilshan', last: 'Pradeep', email: 'dilshan.p@hospital.com', phone: '+94 75 7778899', nic: '198845600333', role: roleMap['Pharmacist'], dept: deptMap['Pharmacy'], desig: 'Chief Pharmacist', join: '2019-11-10', sal: 110000.00, status: 'Full-Time' },
-        { code: 'EMP-2026-0004', first: 'Anura', last: 'Dissanayake', email: 'anura.d@hospital.com', phone: '+94 76 1112233', nic: '198599900444', role: roleMap['Lab Technician'], dept: deptMap['Pathology'], desig: 'Senior Lab Technologist', join: '2022-01-20', sal: 85000.00, status: 'Full-Time' }
+        {
+            code: 'EMP-2026-0001', first: 'Sister Mary', last: 'Fernando',
+            email: 'mary.f@hospital.com', phone: '+94 77 3334455', nic: '198278900111',
+            role: roleMap['Nurse'], dept: deptMap['General Medicine'],
+            desig: 'Head Nursing Officer', join: '2020-03-15', sal: 95000.00, status: 'Full-Time',
+            username: 'mary.fernando', password: 'Nurse@HMS2026'
+        },
+        {
+            code: 'EMP-2026-0002', first: 'Kusal', last: 'Mendis',
+            email: 'kusal.m@hospital.com', phone: '+94 71 5556677', nic: '199012300222',
+            role: roleMap['Accountant'], dept: deptMap['Administration'],
+            desig: 'Senior Financial Accountant', join: '2021-07-01', sal: 120000.00, status: 'Full-Time',
+            username: 'kusal.mendis', password: 'Acct@HMS2026'
+        },
+        {
+            code: 'EMP-2026-0003', first: 'Dilshan', last: 'Pradeep',
+            email: 'dilshan.p@hospital.com', phone: '+94 75 7778899', nic: '198845600333',
+            role: roleMap['Pharmacist'], dept: deptMap['Pharmacy'],
+            desig: 'Chief Pharmacist', join: '2019-11-10', sal: 110000.00, status: 'Full-Time',
+            username: 'dilshan.pradeep', password: 'Pharm@HMS2026'
+        },
+        {
+            code: 'EMP-2026-0004', first: 'Anura', last: 'Dissanayake',
+            email: 'anura.d@hospital.com', phone: '+94 76 1112233', nic: '198599900444',
+            role: roleMap['Lab Technician'], dept: deptMap['Pathology'],
+            desig: 'Senior Lab Technologist', join: '2022-01-20', sal: 85000.00, status: 'Full-Time',
+            username: 'anura.dissanayake', password: 'LabTech@HMS26'
+        }
     ];
 
     const staffIds = [];
     for (const st of sampleStaff) {
+        // Create a hashed password unique to each staff member
+        const staffPwHash = bcrypt.hashSync(st.password, 10);
+
+        // Create the login user account for this staff member
+        await p.query(`
+            INSERT INTO users (username, email, password_hash, full_name, role_id, department_id, phone, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        `, [
+            st.username,
+            st.email,
+            staffPwHash,
+            `${st.first} ${st.last}`,
+            st.role,
+            st.dept,
+            st.phone
+        ]);
+
+        // Create the staff HR record
         const [stRes] = await p.query(`
             INSERT INTO staff (employee_code, first_name, last_name, email, phone, nic_number, role_id, department_id, designation, joining_date, salary, employment_status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

@@ -29,7 +29,12 @@ async function generateEmployeeCode() {
 
 // Apply authentication & authorization guard
 router.use(isAuthenticated);
-router.use(authorize('Administrator', 'Doctor', 'Receptionist', 'Accountant', 'Pharmacist', 'Lab Technician'));
+// PER SPEC: Staff directory readable by all authenticated roles;
+// HR write operations (add/edit/deactivate/attendance/leaves) are Administrator only.
+router.use(authorize(
+    'Administrator', 'Doctor', 'Nurse', 'Receptionist',
+    'Accountant', 'Pharmacist', 'Lab Technician'
+));
 
 // -------------------------------------------------
 // GET /staff — Staff Directory & Attendance Overview
@@ -117,13 +122,8 @@ router.get('/', async (req, res) => {
             status,
             todayStr,
             stats,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('Staff directory error:', err);
         res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });
@@ -131,9 +131,9 @@ router.get('/', async (req, res) => {
 });
 
 // -------------------------------------------------
-// GET /staff/add — Show Registration Form
+// GET /staff/add — Show Registration Form (Admin only)
 // -------------------------------------------------
-router.get('/add', async (req, res) => {
+router.get('/add', authorize('Administrator'), async (req, res) => {
     try {
         const autoCode = await generateEmployeeCode();
         const departments = await queryAll(`SELECT id, department_name FROM departments ORDER BY department_name ASC`) || [];
@@ -158,9 +158,9 @@ router.get('/add', async (req, res) => {
 });
 
 // -------------------------------------------------
-// POST /staff/add — Create Staff Record
+// POST /staff/add — Create Staff Record (Admin only)
 // -------------------------------------------------
-router.post('/add', [
+router.post('/add', authorize('Administrator'), [
     body('first_name').trim().notEmpty().withMessage('First Name is required'),
     body('last_name').trim().notEmpty().withMessage('Last Name is required'),
     body('email').isEmail().withMessage('Valid email address is required'),
@@ -264,13 +264,8 @@ router.get('/view/:id', async (req, res) => {
             staff,
             attendance,
             leaves,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('View staff error:', err);
         res.redirect('/staff');
@@ -278,9 +273,9 @@ router.get('/view/:id', async (req, res) => {
 });
 
 // -------------------------------------------------
-// GET /staff/edit/:id — Show Edit Staff Form
+// GET /staff/edit/:id — Show Edit Staff Form (Admin only)
 // -------------------------------------------------
-router.get('/edit/:id', async (req, res) => {
+router.get('/edit/:id', authorize('Administrator'), async (req, res) => {
     const staffId = req.params.id;
 
     try {
@@ -310,9 +305,9 @@ router.get('/edit/:id', async (req, res) => {
 });
 
 // -------------------------------------------------
-// POST /staff/edit/:id — Save Updated Staff Record
+// POST /staff/edit/:id — Save Updated Staff Record (Admin only)
 // -------------------------------------------------
-router.post('/edit/:id', [
+router.post('/edit/:id', authorize('Administrator'), [
     body('first_name').trim().notEmpty().withMessage('First Name is required'),
     body('last_name').trim().notEmpty().withMessage('Last Name is required'),
     body('email').isEmail().withMessage('Valid email address is required'),
@@ -378,9 +373,9 @@ router.post('/edit/:id', [
 });
 
 // -------------------------------------------------
-// POST /staff/toggle-status/:id — Activate/Deactivate Staff Member
+// POST /staff/toggle-status/:id — Activate/Deactivate Staff (Admin only)
 // -------------------------------------------------
-router.post('/toggle-status/:id', async (req, res) => {
+router.post('/toggle-status/:id', authorize('Administrator'), async (req, res) => {
     const staffId = req.params.id;
 
     try {
@@ -408,9 +403,9 @@ router.post('/toggle-status/:id', async (req, res) => {
 });
 
 // -------------------------------------------------
-// POST /staff/attendance/mark — Log Daily Attendance
+// POST /staff/attendance/mark — Log Daily Attendance (Admin only)
 // -------------------------------------------------
-router.post('/attendance/mark', async (req, res) => {
+router.post('/attendance/mark', authorize('Administrator'), async (req, res) => {
     const { staff_id, attendance_date, check_in, check_out, status, remarks } = req.body;
 
     if (!staff_id || !attendance_date || !status) {
@@ -445,9 +440,9 @@ router.post('/attendance/mark', async (req, res) => {
 });
 
 // -------------------------------------------------
-// POST /staff/leave/apply — Submit Leave Request
+// POST /staff/leave/apply — Submit Leave Request (Admin only)
 // -------------------------------------------------
-router.post('/leave/apply', async (req, res) => {
+router.post('/leave/apply', authorize('Administrator'), async (req, res) => {
     const { staff_id, leave_type, start_date, end_date, total_days, reason } = req.body;
 
     if (!staff_id || !start_date || !end_date) {
@@ -481,9 +476,9 @@ router.post('/leave/apply', async (req, res) => {
 });
 
 // -------------------------------------------------
-// POST /staff/leave/status — Approve or Reject Leave
+// POST /staff/leave/status — Approve or Reject Leave (Admin only)
 // -------------------------------------------------
-router.post('/leave/status', async (req, res) => {
+router.post('/leave/status', authorize('Administrator'), async (req, res) => {
     const { leave_id, status } = req.body;
 
     if (!leave_id || !['Approved', 'Rejected'].includes(status)) {

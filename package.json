@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-db": "node database/init.js"
+    "init-db": "node database/init.js",
+    "add-staff-users": "node scripts/add-staff-users.js"
   },
   "keywords": [
     "hospital",

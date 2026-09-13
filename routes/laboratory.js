@@ -67,7 +67,7 @@ router.get('/', async (req, res) => {
         params.push(category);
     }
 
-    sql += ` ORDER BY lr.requested_date DESC, lr.id DESC`;
+    sql += ` ORDER BY lr.id DESC`;
 
     try {
         const labRequests = await queryAll(sql, params) || [];
@@ -87,13 +87,8 @@ router.get('/', async (req, res) => {
             status,
             category,
             stats,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('Lab list error:', err);
         res.status(500).render('errors/404', { title: 'Database Error', currentUser: req.session.user });
@@ -227,13 +222,8 @@ router.get('/view/:id', async (req, res) => {
             title: `Lab Test ${lab.request_number}`,
             activeMenu: 'laboratory',
             lab,
-            currentUser: req.session.user,
-            success: req.session.successMessage || null,
-            error: req.session.errorMessage || null
+            currentUser: req.session.user
         });
-        delete req.session.successMessage;
-        delete req.session.errorMessage;
-
     } catch (err) {
         console.error('View lab request error:', err);
         res.redirect('/laboratory');

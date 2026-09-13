@@ -8,7 +8,8 @@ const { isAuthenticated, authorize } = require('../middleware/auth');
 
 // Apply authentication & authorization guard
 router.use(isAuthenticated);
-router.use(authorize('Administrator', 'Accountant', 'Doctor', 'Receptionist', 'Pharmacist', 'Lab Technician'));
+// PER SPEC: Reports & Analytics access restricted to Administrator and Accountant only.
+router.use(authorize('Administrator', 'Accountant'));
 
 // -------------------------------------------------
 // GET /reports — Unified Reports & Analytics Suite
