@@ -1,0 +1,121 @@
+<!-- Edit EMR Medical Record View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/emr/view/<%= record.id %>" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Medical Record Details
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Edit Medical Record #EMR-<%= record.id.toString().padStart(4, '0') %></h3>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following validation errors:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <form action="/emr/edit/<%= record.id %>" method="POST" novalidate>
+        <div class="row g-4">
+            <!-- Left Column: Patient & Vitals -->
+            <div class="col-12 col-lg-5">
+                <div class="card border-0 shadow-sm rounded-3 bg-white mb-4">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark">Patient Context</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label class="text-muted small">Patient:</label>
+                            <h5 class="fw-bold text-dark mb-0"><%= record.patient_first_name %> <%= record.patient_last_name %></h5>
+                            <span class="text-primary small fw-semibold"><%= record.patient_uid %></span>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-muted small">Visit Date:</label>
+                            <div class="fw-semibold text-dark"><%= record.visit_date %></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vital Signs Card -->
+                <div class="card border-0 shadow-sm rounded-3 bg-white">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                            <i class="bi bi-activity text-danger me-2 fs-5"></i>Patient Vital Signs
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label for="vitals_bp" class="form-label fw-semibold text-dark">Blood Pressure</label>
+                                <input type="text" id="vitals_bp" name="vitals_bp" class="form-control" value="<%= record.vitals_bp || '' %>">
+                            </div>
+                            <div class="col-6">
+                                <label for="vitals_pulse" class="form-label fw-semibold text-dark">Pulse Rate (BPM)</label>
+                                <input type="number" id="vitals_pulse" name="vitals_pulse" class="form-control" value="<%= record.vitals_pulse || '' %>">
+                            </div>
+                            <div class="col-6">
+                                <label for="vitals_temp" class="form-label fw-semibold text-dark">Temperature (°F)</label>
+                                <input type="number" step="0.1" id="vitals_temp" name="vitals_temp" class="form-control" value="<%= record.vitals_temp || '' %>">
+                            </div>
+                            <div class="col-6">
+                                <label for="vitals_weight" class="form-label fw-semibold text-dark">Weight (kg)</label>
+                                <input type="number" step="0.1" id="vitals_weight" name="vitals_weight" class="form-control" value="<%= record.vitals_weight || '' %>">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Clinical Form -->
+            <div class="col-12 col-lg-7">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark">Edit Diagnosis & Prescription</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-4">
+                            <label for="diagnosis" class="form-label fw-semibold text-dark">Diagnosis <span class="text-danger">*</span></label>
+                            <input type="text" id="diagnosis" name="diagnosis" class="form-control" value="<%= record.diagnosis || '' %>" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="symptoms" class="form-label fw-semibold text-dark">Symptoms <span class="text-danger">*</span></label>
+                            <textarea id="symptoms" name="symptoms" rows="3" class="form-control" required><%= record.symptoms || '' %></textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="treatment_plan" class="form-label fw-semibold text-dark">Treatment Plan</label>
+                            <textarea id="treatment_plan" name="treatment_plan" rows="3" class="form-control"><%= record.treatment_plan || '' %></textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="prescription" class="form-label fw-semibold text-dark">Prescription Rx</label>
+                            <textarea id="prescription" name="prescription" rows="4" class="form-control font-monospace"><%= record.prescription || '' %></textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="doctor_notes" class="form-label fw-semibold text-dark">Doctor Clinical Notes</label>
+                            <textarea id="doctor_notes" name="doctor_notes" rows="2" class="form-control"><%= record.doctor_notes || '' %></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="/emr/view/<%= record.id %>" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4 fw-medium">
+                                <i class="bi bi-save me-1"></i> Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+</div>

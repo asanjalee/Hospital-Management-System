@@ -1,0 +1,82 @@
+<!-- Dispense Medicine / Prescription Fulfillment View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/pharmacy" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Pharmacy Inventory
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Dispense Medicine / Prescription Fulfillment</h3>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following validation errors:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <div class="card border-0 shadow-sm rounded-3 bg-white">
+        <div class="card-header bg-white border-bottom p-3">
+            <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-box-arrow-right text-success me-2"></i>Dispense Prescription to Patient</h5>
+        </div>
+        <div class="card-body p-4">
+            <form action="/pharmacy/dispense" method="POST" novalidate>
+                <div class="row g-3 mb-4">
+                    <div class="col-12 col-md-6">
+                        <label for="patient_id" class="form-label fw-semibold text-dark">Select Patient <span class="text-danger">*</span></label>
+                        <select id="patient_id" name="patient_id" class="form-select form-select-lg" required>
+                            <option value="">-- Select Patient --</option>
+                            <% patients.forEach(p => { %>
+                                <option value="<%= p.id %>" <%= (formData.patient_id == p.id || prePatientId == p.id) ? 'selected' : '' %>>
+                                    <%= p.patient_uid %> — <%= p.first_name %> <%= p.last_name %>
+                                </option>
+                            <% }); %>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <label for="medicine_id" class="form-label fw-semibold text-dark">Select Medicine <span class="text-danger">*</span></label>
+                        <select id="medicine_id" name="medicine_id" class="form-select form-select-lg" required>
+                            <option value="">-- Choose In-Stock Medicine --</option>
+                            <% medicines.forEach(med => { %>
+                                <option value="<%= med.id %>" <%= formData.medicine_id == med.id ? 'selected' : '' %>>
+                                    <%= med.name %> (<%= med.medicine_code %>) &bull; Price: LKR <%= med.unit_price.toFixed(2) %> &bull; In-Stock: <%= med.stock_quantity %>
+                                </option>
+                            <% }); %>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-2">
+                        <label for="quantity" class="form-label fw-semibold text-dark">Quantity <span class="text-danger">*</span></label>
+                        <input type="number" min="1" id="quantity" name="quantity" class="form-control form-control-lg fw-bold" value="<%= formData.quantity || 1 %>" required>
+                    </div>
+                </div>
+
+                <div class="alert alert-info border-0 shadow-sm rounded-3 p-3 mb-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-info-circle-fill text-info fs-5"></i>
+                        <div>
+                            <strong>Stock Automatic Deduction:</strong> Submitting this dispensation will immediately deduct the requested unit quantity from active pharmacy inventory stock.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a href="/pharmacy" class="btn btn-outline-secondary px-4">Cancel</a>
+                    <button type="submit" class="btn btn-success px-4 fw-medium">
+                        <i class="bi bi-check-circle-fill me-1"></i> Fulfill & Dispense Stock
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>

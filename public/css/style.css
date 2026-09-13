@@ -830,3 +830,249 @@ a {
 .page-content {
     animation: fadeIn 0.3s ease-out;
 }
+
+/* ====================================================
+   PRINT STYLESHEET (@media print)
+   ==================================================== */
+@page {
+    margin: 10mm;
+}
+
+@media print {
+    /* Hide layout sidebars, top navigation bars, action buttons, alert banners, notifications, and form controls */
+    .sidebar,
+    .top-navbar,
+    .sidebar-toggle,
+    .notification-dropdown,
+    .d-print-none,
+    .btn,
+    .btn-close,
+    .alert,
+    .dropdown,
+    nav,
+    header,
+    form .btn,
+    form select,
+    form button,
+    .form-text,
+    .no-print {
+        display: none !important;
+    }
+
+    /* Reset background and typography for fluid black & white / PDF printing */
+    html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: 'Inter', -apple-system, sans-serif !important;
+        font-size: 10pt !important;
+        line-height: 1.5 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* Expand main content container to 100% width without sidebar offset */
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+    }
+
+    .container-fluid {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    /* Print card container optimization */
+    .card {
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+        background: #ffffff !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        margin-bottom: 1rem !important;
+        border-radius: 0 !important;
+    }
+
+    .printable-page-container {
+        width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .printable-header {
+        margin-bottom: 1rem !important;
+        padding-bottom: 1rem !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+    }
+
+    .printable-context {
+        margin-bottom: 1rem !important;
+        padding: 0.75rem 1rem !important;
+        background-color: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 6px !important;
+    }
+
+    .printable-table {
+        margin-bottom: 1rem !important;
+        width: 100% !important;
+    }
+
+    .printable-totals {
+        padding: 0.75rem 1rem !important;
+        background-color: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 6px !important;
+    }
+
+    .printable-footer {
+        margin-top: 1.5rem !important;
+        border-top: 1px dashed #cbd5e1 !important;
+        padding-top: 10px !important;
+        font-size: 8.5pt !important;
+        color: #475569 !important;
+        text-align: center !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .card-header {
+        background-color: #f8fafc !important;
+        color: #0f172a !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+        padding: 0.75rem 1rem !important;
+    }
+
+    .card-body {
+        padding: 1rem !important;
+    }
+
+    /* Print text formatting */
+    .text-muted {
+        color: #475569 !important;
+    }
+
+    .bg-light {
+        background-color: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+
+    /* Table styling for print */
+    .table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin-bottom: 0.75rem !important;
+    }
+
+    .table th, .table td {
+        border: 1px solid #cbd5e1 !important;
+        background-color: transparent !important;
+        color: #0f172a !important;
+        padding: 6px 10px !important;
+        font-size: 9.5pt !important;
+    }
+
+    .table-light, .table-light th {
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
+    }
+
+    /* Ensure text pre blocks wrap properly when printed */
+    pre {
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        font-size: 9pt !important;
+    }
+
+    /* Clean link display */
+    a {
+        text-decoration: none !important;
+        color: #0f172a !important;
+    }
+
+    /* Force full page display and bottom footer alignment of report containers */
+    #printableReceipt,
+    #printableLabReport,
+    #printableCaseSheet {
+        width: 100% !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 94vh !important;
+        justify-content: space-between !important;
+        box-sizing: border-box !important;
+    }
+
+    .printable-footer {
+        margin-top: auto !important;
+        border-top: 1px dashed #cbd5e1 !important;
+        padding-top: 12px !important;
+        font-size: 8.5pt !important;
+        color: #475569 !important;
+        text-align: center !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    /* Signature Block Print Handling & Spacing */
+    .signature-block {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: flex-end !important;
+        width: 100% !important;
+        margin-top: 2rem !important;
+        margin-bottom: 1.5rem !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .signature-item {
+        width: 42% !important;
+        text-align: center !important;
+    }
+
+    .signature-line {
+        border-top: 1.5px solid #0f172a !important;
+        padding-top: 8px !important;
+        margin-top: 40px !important; /* Generous space above line for physical signature or stamp */
+    }
+}
+
+/* Screen Display Signature Layout */
+.signature-block {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.signature-item {
+    width: 40%;
+    text-align: center;
+}
+
+.signature-line {
+    border-top: 1.5px solid #0f172a;
+    padding-top: 8px;
+    margin-top: 45px;
+}
+

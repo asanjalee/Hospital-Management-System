@@ -206,6 +206,42 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- -----------------------------------------------
+-- Table: medicines
+-- Pharmacy medicine inventory tracking
+-- -----------------------------------------------
+CREATE TABLE IF NOT EXISTS medicines (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    medicine_code   TEXT NOT NULL UNIQUE,
+    name            TEXT NOT NULL,
+    generic_name    TEXT,
+    category        TEXT,
+    unit_price      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    stock_quantity  INTEGER NOT NULL DEFAULT 0,
+    reorder_level   INTEGER DEFAULT 10,
+    expiry_date     DATE,
+    manufacturer    TEXT,
+    is_active       INTEGER DEFAULT 1,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- -----------------------------------------------
+-- Table: billing_items
+-- Itemized line items for patient invoices
+-- -----------------------------------------------
+CREATE TABLE IF NOT EXISTS billing_items (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    billing_id      INTEGER NOT NULL,
+    item_type       TEXT CHECK(item_type IN ('Consultation', 'Lab Test', 'Pharmacy', 'Service', 'Other')) DEFAULT 'Other',
+    description     TEXT NOT NULL,
+    quantity        INTEGER NOT NULL DEFAULT 1,
+    unit_price      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    amount          DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (billing_id) REFERENCES billing(id) ON DELETE CASCADE
+);
+
 -- =====================================================
 -- Seed Data: Default Roles
 -- =====================================================

@@ -1,0 +1,217 @@
+<!-- Pharmacy Management & Inventory View -->
+<div class="container-fluid px-0">
+
+    <!-- Flash Messages -->
+    <% if (typeof success !== 'undefined' && success) { %>
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> <%= success %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> <%= error %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <% } %>
+
+    <!-- Header Banner & Action -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold mb-1 text-dark">
+                <i class="bi bi-capsule-pill text-warning-emphasis me-2"></i>Pharmacy & Stock Inventory
+            </h3>
+            <p class="text-muted mb-0">Manage medicine inventory, stock level reorder warnings, expiry dates, and prescription dispensation</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/pharmacy/dispense" class="btn btn-success d-inline-flex align-items-center gap-2 shadow-sm rounded-3 px-3 py-2 fw-medium">
+                <i class="bi bi-box-arrow-right fs-5"></i>
+                <span>Dispense Medicine</span>
+            </a>
+            <a href="/pharmacy/add" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm rounded-3 px-3 py-2 fw-medium">
+                <i class="bi bi-plus-circle-fill fs-5"></i>
+                <span>Add Medicine</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Metric KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                <div class="card-body p-3 d-flex align-items-center gap-3">
+                    <div class="rounded-3 bg-primary bg-opacity-10 text-primary p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                        <i class="bi bi-boxes fs-3"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Total Products</div>
+                        <h4 class="fw-bold mb-0 text-dark"><%= stats.totalItems %></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                <div class="card-body p-3 d-flex align-items-center gap-3">
+                    <div class="rounded-3 bg-danger bg-opacity-10 text-danger p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                        <i class="bi bi-exclamation-octagon-fill fs-3"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Low Stock Alerts</div>
+                        <h4 class="fw-bold mb-0 text-danger"><%= stats.lowStock %></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                <div class="card-body p-3 d-flex align-items-center gap-3">
+                    <div class="rounded-3 bg-warning bg-opacity-10 text-warning-emphasis p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                        <i class="bi bi-calendar-x-fill fs-3"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Expiring Soon (60d)</div>
+                        <h4 class="fw-bold mb-0 text-warning-emphasis"><%= stats.expiring %></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                <div class="card-body p-3 d-flex align-items-center gap-3">
+                    <div class="rounded-3 bg-success bg-opacity-10 text-success p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                        <i class="bi bi-currency-dollar fs-3"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Est. Inventory Value</div>
+                        <h4 class="fw-bold mb-0 text-success">LKR <%= (stats.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2}) %></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white">
+        <div class="card-body p-3">
+            <form action="/pharmacy" method="GET" class="row g-2 align-items-center">
+                <div class="col-12 col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" name="search" class="form-control bg-light border-start-0 ps-0" placeholder="Search code, medicine name, generic name, manufacturer..." value="<%= search %>">
+                    </div>
+                </div>
+                <div class="col-12 col-md-3">
+                    <select name="category" class="form-select bg-light">
+                        <option value="">All Categories</option>
+                        <% categories.forEach(c => { %>
+                            <option value="<%= c.category %>" <%= category === c.category ? 'selected' : '' %>><%= c.category %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <select name="filter" class="form-select bg-light">
+                        <option value="">All Inventory</option>
+                        <option value="low_stock" <%= filter === 'low_stock' ? 'selected' : '' %>>Low Stock Warnings</option>
+                        <option value="expiring" <%= filter === 'expiring' ? 'selected' : '' %>>Expiring Soon</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100 fw-medium">Filter</button>
+                    <a href="/pharmacy" class="btn btn-outline-secondary px-3" title="Reset Filters"><i class="bi bi-arrow-counterclockwise"></i></a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Inventory Table -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white">
+        <div class="card-body p-0">
+            <% if (medicines && medicines.length > 0) { %>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Code</th>
+                                <th>Medicine & Generic Name</th>
+                                <th>Category</th>
+                                <th>Unit Price (LKR)</th>
+                                <th>In-Stock Quantity</th>
+                                <th>Expiry Date</th>
+                                <th>Stock Status</th>
+                                <th class="text-end pe-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% medicines.forEach(med => { %>
+                                <% 
+                                    const isLow = med.stock_quantity <= med.reorder_level;
+                                    const expDate = med.expiry_date ? new Date(med.expiry_date) : null;
+                                    const now = new Date();
+                                    const daysToExp = expDate ? Math.ceil((expDate - now) / (1000 * 60 * 60 * 24)) : 999;
+                                    const isExpiring = daysToExp <= 60;
+                                %>
+                                <tr>
+                                    <td class="ps-3">
+                                        <span class="fw-bold font-monospace text-primary"><%= med.medicine_code %></span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark"><%= med.name %></div>
+                                        <div class="small text-muted"><%= med.generic_name || 'Generic Unspecified' %> &bull; <span class="text-secondary"><%= med.manufacturer || 'Local Pharma' %></span></div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border px-2 py-1"><%= med.category || 'General' %></span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-dark">LKR <%= med.unit_price.toFixed(2) %></span>
+                                    </td>
+                                    <td>
+                                        <span class="fs-6 fw-bold <%= isLow ? 'text-danger' : 'text-dark' %>"><%= med.stock_quantity %> units</span>
+                                        <div class="small text-muted">Reorder level: <%= med.reorder_level %></div>
+                                    </td>
+                                    <td>
+                                        <% if (med.expiry_date) { %>
+                                            <div class="small fw-semibold <%= isExpiring ? 'text-danger' : 'text-dark' %>">
+                                                <i class="bi bi-calendar-event me-1"></i><%= med.expiry_date %>
+                                            </div>
+                                            <% if (daysToExp <= 0) { %>
+                                                <span class="badge bg-danger text-white">EXPIRED</span>
+                                            <% } else if (daysToExp <= 60) { %>
+                                                <span class="badge bg-warning text-dark">Expiring in <%= daysToExp %>d</span>
+                                            <% } %>
+                                        <% } else { %>
+                                            <span class="text-muted small">N/A</span>
+                                        <% } %>
+                                    </td>
+                                    <td>
+                                        <% if (med.stock_quantity === 0) { %>
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1 fw-semibold">Out of Stock</span>
+                                        <% } else if (isLow) { %>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 fw-semibold">Low Stock Warning</span>
+                                        <% } else { %>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 fw-semibold">Healthy Stock</span>
+                                        <% } %>
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <a href="/pharmacy/edit/<%= med.id %>" class="btn btn-sm btn-outline-primary fw-medium me-1">
+                                            <i class="bi bi-pencil me-1"></i> Edit Stock
+                                        </a>
+                                        <a href="/pharmacy/dispense?medicine_id=<%= med.id %>" class="btn btn-sm btn-light border text-success" title="Dispense"><i class="bi bi-cart-plus"></i></a>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } else { %>
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-capsule display-4 mb-3 text-secondary d-block"></i>
+                    <h5 class="fw-bold text-dark mb-1">No Medicines Found</h5>
+                    <p class="text-muted mb-3">No inventory items matched your filter or search terms.</p>
+                    <a href="/pharmacy/add" class="btn btn-primary fw-medium px-4">Add New Medicine</a>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+</div>

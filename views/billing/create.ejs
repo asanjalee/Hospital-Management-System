@@ -1,0 +1,215 @@
+<!-- Generate Itemized Patient Invoice View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/billing" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Billing Directory
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Generate Itemized Patient Invoice</h3>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following validation errors:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <form action="/billing/create" method="POST" id="invoiceForm" novalidate>
+        <div class="row g-4 mb-4">
+            <!-- Left Header Info -->
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3">
+                        <h5 class="fw-bold mb-0 text-dark">Invoice Header Details</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <label for="invoice_number" class="form-label fw-semibold text-dark">Invoice Number</label>
+                            <input type="text" id="invoice_number" name="invoice_number" class="form-control font-monospace fw-bold bg-light" value="<%= formData.invoice_number || autoInvoiceNum %>" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="invoice_date" class="form-label fw-semibold text-dark">Invoice Date <span class="text-danger">*</span></label>
+                            <input type="date" id="invoice_date" name="invoice_date" class="form-control" value="<%= formData.invoice_date || todayStr %>" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="patient_id" class="form-label fw-semibold text-dark">Select Patient <span class="text-danger">*</span></label>
+                            <select id="patient_id" name="patient_id" class="form-select form-select-lg" required>
+                                <option value="">-- Select Patient --</option>
+                                <% patients.forEach(p => { %>
+                                    <option value="<%= p.id %>" <%= (formData.patient_id == p.id || prePatientId == p.id) ? 'selected' : '' %>>
+                                        <%= p.patient_uid %> — <%= p.first_name %> <%= p.last_name %>
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="appointment_id" class="form-label fw-semibold text-dark">Link Appointment (Optional)</label>
+                            <select id="appointment_id" name="appointment_id" class="form-select">
+                                <option value="">-- Optional Scheduled Appointment --</option>
+                                <% appointments.forEach(apt => { %>
+                                    <option value="<%= apt.id %>" data-fee="<%= apt.consultation_fee %>" data-doc="<%= apt.doctor_name %>" <%= (formData.appointment_id == apt.id || preAppointmentId == apt.id) ? 'selected' : '' %>>
+                                        <%= apt.appointment_number %> &bull; <%= apt.patient_uid %> (<%= apt.doctor_name %> - Fee: LKR <%= apt.consultation_fee %>)
+                                    </option>
+                                <% }); %>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Line Items Card -->
+            <div class="col-12 col-lg-8">
+                <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                    <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0 text-dark">Itemized Charges & Services</h5>
+                        <button type="button" id="addRowBtn" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-plus-circle"></i> Add Charge Item
+                        </button>
+                    </div>
+                    <div class="card-body p-4">
+
+                        <!-- Quick Template Pre-fill Buttons -->
+                        <div class="mb-3 d-flex flex-wrap gap-2">
+                            <span class="small text-muted align-self-center me-1">Quick Add:</span>
+                            <button type="button" class="btn btn-sm btn-light border" onclick="addPresetItem('Consultation', 'Doctor Consultation Fee', 3500.00)">+ Consultation (LKR 3,500)</button>
+                            <button type="button" class="btn btn-sm btn-light border" onclick="addPresetItem('Lab Test', 'Full Blood Count (FBC) Lab Test', 2000.00)">+ FBC Lab Test (LKR 2,000)</button>
+                            <button type="button" class="btn btn-sm btn-light border" onclick="addPresetItem('Pharmacy', 'Prescription Medications', 1500.00)">+ Pharmacy Rx (LKR 1,500)</button>
+                        </div>
+
+                        <!-- Dynamic Table for Line Items -->
+                        <div class="table-responsive mb-4">
+                            <table class="table align-middle" id="itemsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 22%;">Item Category</th>
+                                        <th style="width: 40%;">Description</th>
+                                        <th style="width: 13%;">Qty</th>
+                                        <th style="width: 20%;">Unit Price (LKR)</th>
+                                        <th style="width: 5%;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsBody">
+                                    <tr>
+                                        <td>
+                                            <select name="item_types" class="form-select">
+                                                <option value="Consultation" selected>Consultation</option>
+                                                <option value="Lab Test">Lab Test</option>
+                                                <option value="Pharmacy">Pharmacy</option>
+                                                <option value="Service">Service</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text" name="item_descriptions" class="form-control" placeholder="e.g. Doctor Consultation Fee" value="Doctor Consultation Fee" required>
+                                        </td>
+                                        <td>
+                                            <input type="number" name="item_quantities" class="form-control qty-input" value="1" min="1" required>
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" name="item_unit_prices" class="form-control price-input" placeholder="3500.00" value="3500.00" required>
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 remove-row-btn"><i class="bi bi-trash"></i></button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Payment & Discount Summary Fields -->
+                        <div class="row g-3 p-3 bg-light rounded-3">
+                            <div class="col-12 col-md-4">
+                                <label for="discount_amount" class="form-label fw-semibold text-dark">Discount Amount (LKR)</label>
+                                <input type="number" step="0.01" id="discount_amount" name="discount_amount" class="form-control" placeholder="0.00" value="<%= formData.discount_amount || '0.00' %>">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="paid_amount" class="form-label fw-semibold text-dark">Amount Paid Now (LKR)</label>
+                                <input type="number" step="0.01" id="paid_amount" name="paid_amount" class="form-control fw-bold" placeholder="0.00" value="<%= formData.paid_amount || '0.00' %>">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="payment_method" class="form-label fw-semibold text-dark">Payment Method</label>
+                                <select id="payment_method" name="payment_method" class="form-select">
+                                    <option value="Cash" selected>Cash</option>
+                                    <option value="Credit/Debit Card">Credit/Debit Card</option>
+                                    <option value="Bank Transfer">Bank Transfer</option>
+                                    <option value="Insurance Claim">Insurance Claim</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label for="notes" class="form-label fw-semibold text-dark">Billing Remarks / Notes</label>
+                                <input type="text" id="notes" name="notes" class="form-control" placeholder="Additional billing notes or payment reference code..." value="<%= formData.notes || '' %>">
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 pt-4">
+                            <a href="/billing" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4 fw-medium">
+                                <i class="bi bi-receipt-cutoff me-1"></i> Generate Official Invoice
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+</div>
+
+<script>
+    function addPresetItem(type, desc, price) {
+        const tbody = document.getElementById('itemsBody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <select name="item_types" class="form-select">
+                    <option value="Consultation" ${type === 'Consultation' ? 'selected' : ''}>Consultation</option>
+                    <option value="Lab Test" ${type === 'Lab Test' ? 'selected' : ''}>Lab Test</option>
+                    <option value="Pharmacy" ${type === 'Pharmacy' ? 'selected' : ''}>Pharmacy</option>
+                    <option value="Service" ${type === 'Service' ? 'selected' : ''}>Service</option>
+                    <option value="Other" ${type === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+            </td>
+            <td>
+                <input type="text" name="item_descriptions" class="form-control" placeholder="Item description" value="${desc}" required>
+            </td>
+            <td>
+                <input type="number" name="item_quantities" class="form-control qty-input" value="1" min="1" required>
+            </td>
+            <td>
+                <input type="number" step="0.01" name="item_unit_prices" class="form-control price-input" value="${price.toFixed(2)}" required>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger border-0 remove-row-btn"><i class="bi bi-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        bindRemoveButtons();
+    }
+
+    document.getElementById('addRowBtn').addEventListener('click', function() {
+        addPresetItem('Service', '', 0.00);
+    });
+
+    function bindRemoveButtons() {
+        document.querySelectorAll('.remove-row-btn').forEach(btn => {
+            btn.onclick = function() {
+                if (document.querySelectorAll('#itemsBody tr').length > 1) {
+                    this.closest('tr').remove();
+                } else {
+                    alert('At least one charge item is required on the invoice.');
+                }
+            };
+        });
+    }
+    bindRemoveButtons();
+</script>

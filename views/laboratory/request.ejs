@@ -1,0 +1,104 @@
+<!-- Order Lab Test View -->
+<div class="container-fluid px-0">
+
+    <!-- Header Navigation -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/laboratory" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Laboratory Directory
+            </a>
+            <h3 class="fw-bold mb-0 text-dark">Order New Laboratory Diagnostic Test</h3>
+        </div>
+    </div>
+
+    <!-- Error Alert Banner -->
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+        <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following validation errors:</h6>
+            <ul class="mb-0 ps-3">
+                <% errors.forEach(err => { %>
+                    <li><%= err.msg %></li>
+                <% }); %>
+            </ul>
+        </div>
+    <% } %>
+
+    <div class="card border-0 shadow-sm rounded-3 bg-white">
+        <div class="card-header bg-white border-bottom p-3">
+            <h5 class="fw-bold mb-0 text-dark">Laboratory Order Form</h5>
+        </div>
+        <div class="card-body p-4">
+            <form action="/laboratory/request" method="POST" novalidate>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-6">
+                        <label for="request_number" class="form-label fw-semibold text-dark">Lab Request Number</label>
+                        <input type="text" id="request_number" name="request_number" class="form-control bg-light fw-bold" value="<%= autoNumber %>" readonly>
+                        <div class="form-text">System generated request ID</div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label for="requested_date" class="form-label fw-semibold text-dark">Request Date <span class="text-danger">*</span></label>
+                        <input type="date" id="requested_date" name="requested_date" class="form-control" value="<%= formData.requested_date || todayStr %>" required>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-6">
+                        <label for="patient_id" class="form-label fw-semibold text-dark">Select Patient <span class="text-danger">*</span></label>
+                        <select id="patient_id" name="patient_id" class="form-select form-select-lg" required>
+                            <option value="">-- Choose Patient --</option>
+                            <% patients.forEach(p => { %>
+                                <option value="<%= p.id %>" <%= (formData.patient_id == p.id || prePatientId == p.id) ? 'selected' : '' %>>
+                                    <%= p.patient_uid %> — <%= p.first_name %> <%= p.last_name %>
+                                </option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label for="doctor_id" class="form-label fw-semibold text-dark">Ordering Doctor / Specialist</label>
+                        <select id="doctor_id" name="doctor_id" class="form-select form-select-lg">
+                            <option value="">-- Select Ordering Doctor --</option>
+                            <% doctors.forEach(doc => { %>
+                                <option value="<%= doc.id %>" <%= (formData.doctor_id == doc.id || preDoctorId == doc.id) ? 'selected' : '' %>>
+                                    <%= doc.full_name %> (<%= doc.specialization %>)
+                                </option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-8">
+                        <label for="test_name" class="form-label fw-semibold text-dark">Test Name / Panel <span class="text-danger">*</span></label>
+                        <input type="text" id="test_name" name="test_name" class="form-control form-control-lg" placeholder="e.g. Full Blood Count (FBC), Lipid Profile, Liver Function Test" value="<%= formData.test_name || '' %>" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="test_category" class="form-label fw-semibold text-dark">Department / Category <span class="text-danger">*</span></label>
+                        <select id="test_category" name="test_category" class="form-select form-select-lg" required>
+                            <option value="">-- Select Category --</option>
+                            <option value="Hematology" <%= formData.test_category === 'Hematology' ? 'selected' : '' %>>Hematology</option>
+                            <option value="Biochemistry" <%= formData.test_category === 'Biochemistry' ? 'selected' : '' %>>Biochemistry</option>
+                            <option value="Microbiology" <%= formData.test_category === 'Microbiology' ? 'selected' : '' %>>Microbiology</option>
+                            <option value="Radiology" <%= formData.test_category === 'Radiology' ? 'selected' : '' %>>Radiology (X-Ray/Scan)</option>
+                            <option value="Pathology" <%= formData.test_category === 'Pathology' ? 'selected' : '' %>>Pathology</option>
+                            <option value="General" <%= formData.test_category === 'General' ? 'selected' : '' %>>General Diagnostic</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="remarks" class="form-label fw-semibold text-dark">Clinical Instructions / Fasting Requirements</label>
+                    <textarea id="remarks" name="remarks" rows="3" class="form-control" placeholder="e.g. Patient must fast for 12 hours prior to sample collection. Urgent priority..."><%= formData.remarks || '' %></textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a href="/laboratory" class="btn btn-outline-secondary px-4">Cancel</a>
+                    <button type="submit" class="btn btn-primary px-4 fw-medium">
+                        <i class="bi bi-send-fill me-1"></i> Submit Test Order
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
