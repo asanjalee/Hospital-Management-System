@@ -161,6 +161,32 @@ router.post('/add', [
             });
         }
 
+        // Check for room & schedule overlap
+        if (room_number && room_number.trim() !== '') {
+            const roomConflicts = await queryAll(
+                'SELECT u.full_name, d.availability_schedule FROM doctors d JOIN users u ON d.user_id = u.id WHERE d.room_number = ?',
+                [room_number.trim()]
+            );
+
+            for (const conflict of roomConflicts) {
+                if (conflict.availability_schedule && availability_schedule) {
+                    const sched1 = conflict.availability_schedule.toLowerCase();
+                    const sched2 = availability_schedule.toLowerCase();
+                    // Basic string overlap overlap logic for schedule arrays
+                    if (sched1 === sched2 || sched1.includes(sched2) || sched2.includes(sched1)) {
+                        return res.render('doctors/add', {
+                            title: 'Add New Doctor',
+                            activeMenu: 'doctors',
+                            departments,
+                            errors: [{ msg: `Room conflict: ${room_number.trim()} is already assigned to ${conflict.full_name} during an overlapping schedule (${conflict.availability_schedule}). Please assign a different room or schedule.` }],
+                            formData: req.body,
+                            currentUser: req.session.user
+                        });
+                    }
+                }
+            }
+        }
+
         // Get Doctor role ID
         const doctorRole = await queryOne("SELECT id FROM roles WHERE role_name = 'Doctor'");
         const roleId = doctorRole ? doctorRole.id : 2;
