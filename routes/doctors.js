@@ -129,6 +129,15 @@ router.post('/add', [
         return true;
     })
 ], async (req, res) => {
+    // Smart normalize doctor's name format
+    if (req.body.full_name) {
+        let cleanName = req.body.full_name.trim().replace(/^dr\.?\s*/i, '');
+        if (cleanName.length > 0) {
+            cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        }
+        req.body.full_name = 'Dr. ' + cleanName;
+    }
+
     const errors = validationResult(req);
     const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
 
@@ -371,6 +380,16 @@ router.post('/edit/:id', [
     })
 ], async (req, res) => {
     const docId = req.params.id;
+
+    // Smart normalize doctor's name format
+    if (req.body.full_name) {
+        let cleanName = req.body.full_name.trim().replace(/^dr\.?\s*/i, '');
+        if (cleanName.length > 0) {
+            cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        }
+        req.body.full_name = 'Dr. ' + cleanName;
+    }
+
     const errors = validationResult(req);
     const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
 
