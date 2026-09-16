@@ -104,12 +104,12 @@ router.get('/add', async (req, res) => {
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name, gender, date_of_birth FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC`) || [];
         const appointments = await queryAll(`
-            SELECT a.id, a.appointment_number, a.appointment_date, p.patient_uid, p.first_name, p.last_name, u.full_name as doctor_name
+            SELECT a.id, a.appointment_number, a.appointment_date, p.id as patient_id, p.patient_uid, p.first_name, p.last_name, u.full_name as doctor_name
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
             JOIN doctors doc ON a.doctor_id = doc.id
             JOIN users u ON doc.user_id = u.id
-            WHERE a.status = 'Scheduled'
+            WHERE a.status IN ('Scheduled', 'Completed') AND a.appointment_date <= CURDATE()
             ORDER BY a.appointment_date DESC
         `) || [];
 
@@ -144,9 +144,14 @@ router.get('/add', async (req, res) => {
 // -------------------------------------------------
 router.post('/add', [
     body('patient_id').notEmpty().withMessage('Patient selection is required'),
-    body('visit_date').notEmpty().isISO8601().withMessage('Valid visit date is required'),
+    body('visit_date').notEmpty().isISO8601().withMessage('Valid visit date is required')
+        .custom(value => {
+            if (new Date(value) > new Date()) throw new Error('Visit date cannot be in the future');
+            return true;
+        }),
     body('diagnosis').trim().notEmpty().withMessage('Medical diagnosis is required'),
     body('symptoms').trim().notEmpty().withMessage('Symptoms description is required'),
+    body('vitals_bp').optional({ checkFalsy: true }).matches(/^\d{2,3}\/\d{2,3}$/).withMessage('Blood pressure must be strictly numeric format (e.g., 120/80)'),
     body('vitals_pulse').optional({ checkFalsy: true }).isInt({ min: 30, max: 250 }).withMessage('Pulse rate must be a number between 30 and 250 BPM'),
     body('vitals_temp').optional({ checkFalsy: true }).isFloat({ min: 90, max: 110 }).withMessage('Body temperature must be between 90 and 110 °F'),
     body('vitals_weight').optional({ checkFalsy: true }).isFloat({ min: 1, max: 500 }).withMessage('Weight must be a positive number (kg)')
@@ -156,7 +161,7 @@ router.post('/add', [
     if (!errors.isEmpty()) {
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC`) || [];
-        const appointments = await queryAll(`SELECT a.id, a.appointment_number, a.appointment_date, p.patient_uid, p.first_name, p.last_name FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.status = 'Scheduled' ORDER BY a.appointment_date DESC`) || [];
+        const appointments = await queryAll(`SELECT a.id, a.appointment_number, a.appointment_date, p.id as patient_id, p.patient_uid, p.first_name, p.last_name FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.status IN ('Scheduled', 'Completed') AND a.appointment_date <= CURDATE() ORDER BY a.appointment_date DESC`) || [];
 
         return res.render('emr/add', {
             title: 'Add Medical Record',
@@ -295,8 +300,10 @@ router.get('/edit/:id', async (req, res) => {
 router.post('/edit/:id', [
     body('diagnosis').trim().notEmpty().withMessage('Medical diagnosis is required'),
     body('symptoms').trim().notEmpty().withMessage('Symptoms description is required'),
+    body('vitals_bp').optional({ checkFalsy: true }).matches(/^\d{2,3}\/\d{2,3}$/).withMessage('Blood pressure must be strictly numeric format (e.g., 120/80)'),
     body('vitals_pulse').optional({ checkFalsy: true }).isInt({ min: 30, max: 250 }).withMessage('Pulse rate must be between 30 and 250 BPM'),
-    body('vitals_temp').optional({ checkFalsy: true }).isFloat({ min: 90, max: 110 }).withMessage('Body temperature must be between 90 and 110 °F')
+    body('vitals_temp').optional({ checkFalsy: true }).isFloat({ min: 90, max: 110 }).withMessage('Body temperature must be between 90 and 110 °F'),
+    body('vitals_weight').optional({ checkFalsy: true }).isFloat({ min: 1, max: 500 }).withMessage('Weight must be a positive number (kg)')
 ], async (req, res) => {
     const recId = req.params.id;
     const errors = validationResult(req);

@@ -66,7 +66,7 @@
                             <select id="appointment_id" name="appointment_id" class="form-select">
                                 <option value="">-- Optional Linked Appointment --</option>
                                 <% appointments.forEach(apt => { %>
-                                    <option value="<%= apt.id %>" <%= (formData.appointment_id == apt.id || preAppointmentId == apt.id) ? 'selected' : '' %>>
+                                    <option value="<%= apt.id %>" data-patient-id="<%= apt.patient_id %>" <%= (formData.appointment_id == apt.id || preAppointmentId == apt.id) ? 'selected' : '' %>>
                                         <%= apt.appointment_number %> &bull; <%= apt.patient_uid %> (<%= apt.appointment_date %>)
                                     </option>
                                 <% }); %>
@@ -76,7 +76,7 @@
                         <!-- Visit Date -->
                         <div class="mb-3">
                             <label for="visit_date" class="form-label fw-semibold text-dark">Visit Date <span class="text-danger">*</span></label>
-                            <input type="date" id="visit_date" name="visit_date" class="form-control" value="<%= formData.visit_date || todayStr %>" required>
+                            <input type="date" id="visit_date" name="visit_date" class="form-control" value="<%= formData.visit_date || todayStr %>" max="<%= todayStr %>" required>
                         </div>
                     </div>
                 </div>
@@ -92,7 +92,7 @@
                         <div class="row g-3">
                             <div class="col-6">
                                 <label for="vitals_bp" class="form-label fw-semibold text-dark">Blood Pressure</label>
-                                <input type="text" id="vitals_bp" name="vitals_bp" class="form-control" placeholder="e.g. 120/80" value="<%= formData.vitals_bp || '' %>">
+                                <input type="text" id="vitals_bp" name="vitals_bp" class="form-control" placeholder="e.g. 120/80" value="<%= formData.vitals_bp || '' %>" pattern="^\\d{2,3}\\/\\d{2,3}$" title="Must be in format xxx/xx (e.g. 120/80)">
                                 <div class="form-text">mmHg</div>
                             </div>
                             <div class="col-6">
@@ -107,7 +107,7 @@
                             </div>
                             <div class="col-6">
                                 <label for="vitals_weight" class="form-label fw-semibold text-dark">Body Weight</label>
-                                <input type="number" step="0.1" id="vitals_weight" name="vitals_weight" class="form-control" placeholder="70.5" value="<%= formData.vitals_weight || '' %>">
+                                <input type="number" step="0.1" min="0" id="vitals_weight" name="vitals_weight" class="form-control" placeholder="70.5" value="<%= formData.vitals_weight || '' %>">
                                 <div class="form-text">kg</div>
                             </div>
                         </div>
@@ -170,3 +170,31 @@
     </form>
 
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const patientSelect = document.getElementById('patient_id');
+        const appointmentSelect = document.getElementById('appointment_id');
+        const appointmentOptions = Array.from(appointmentSelect.options);
+
+        function filterAppointments() {
+            const selectedPatientId = patientSelect.value;
+            appointmentSelect.innerHTML = '';
+            
+            appointmentOptions.forEach(opt => {
+                if (opt.value === '' || opt.getAttribute('data-patient-id') === selectedPatientId) {
+                    appointmentSelect.appendChild(opt);
+                }
+            });
+            
+            const preSelectedApt = "<%= formData.appointment_id || preAppointmentId || '' %>";
+            if (preSelectedApt && Array.from(appointmentSelect.options).some(o => o.value === preSelectedApt)) {
+                appointmentSelect.value = preSelectedApt;
+            } else {
+                appointmentSelect.value = '';
+            }
+        }
+        
+        patientSelect.addEventListener('change', filterAppointments);
+        filterAppointments();
+    });
+</script>
