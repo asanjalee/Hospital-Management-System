@@ -163,6 +163,7 @@ router.get('/book', async (req, res) => {
             patients,
             doctors,
             scheduledAppts,
+            todayDate: getSLTimestamp().split(' ')[0],
             prePatientId,
             preDoctorId,
             preDate,
@@ -206,6 +207,7 @@ router.post('/book', [
             patients,
             doctors,
             scheduledAppts,
+            todayDate: getSLTimestamp().split(' ')[0],
             prePatientId: req.body.patient_id || '',
             preDoctorId: req.body.doctor_id || '',
             preDate: req.body.appointment_date || '',
@@ -219,6 +221,47 @@ router.post('/book', [
     const { appointment_number, patient_id, doctor_id, appointment_date, appointment_time, reason, notes } = req.body;
 
     try {
+        // 0. Past Date/Time Validation
+        const slTimeFull = getSLTimestamp(); // "YYYY-MM-DD HH:MM:SS"
+        const currentSLDate = slTimeFull.split(' ')[0];
+        
+        if (appointment_date < currentSLDate) {
+            return res.render('appointments/book', {
+                title: 'Book New Appointment',
+                activeMenu: 'appointments',
+                autoNumber: appointment_number || await generateAppointmentNumber(),
+                patients, doctors, scheduledAppts, todayDate: currentSLDate, prePatientId: patient_id, preDoctorId: doctor_id, preDate: appointment_date, preTime: appointment_time,
+                errors: [{ msg: 'Cannot book appointments for past dates. Please select today or a future date.' }],
+                formData: req.body, currentUser: req.session.user
+            });
+        }
+        
+        if (appointment_date === currentSLDate) {
+            const timeParts = appointment_time.trim().split(' ');
+            if (timeParts.length === 2) {
+                const clockParts = timeParts[0].split(':');
+                let h = parseInt(clockParts[0], 10);
+                const m = parseInt(clockParts[1], 10);
+                if (timeParts[1].toUpperCase() === 'PM' && h < 12) h += 12;
+                if (timeParts[1].toUpperCase() === 'AM' && h === 12) h = 0;
+                
+                const currTime = slTimeFull.split(' ')[1].split(':');
+                const currH = parseInt(currTime[0], 10);
+                const currM = parseInt(currTime[1], 10);
+                
+                if (h < currH || (h === currH && m <= currM)) {
+                    return res.render('appointments/book', {
+                        title: 'Book New Appointment',
+                        activeMenu: 'appointments',
+                        autoNumber: appointment_number || await generateAppointmentNumber(),
+                        patients, doctors, scheduledAppts, todayDate: currentSLDate, prePatientId: patient_id, preDoctorId: doctor_id, preDate: appointment_date, preTime: appointment_time,
+                        errors: [{ msg: `Cannot book past time slots for today. The time ${appointment_time} has already elapsed.` }],
+                        formData: req.body, currentUser: req.session.user
+                    });
+                }
+            }
+        }
+        
         // 1. Strict Schedule Validation Check
         const doctorData = doctors.find(d => d.id == doctor_id);
         if (doctorData && doctorData.availability_schedule) {
@@ -240,6 +283,7 @@ router.post('/book', [
                     activeMenu: 'appointments',
                     autoNumber: appointment_number || await generateAppointmentNumber(),
                     patients, doctors, scheduledAppts, prePatientId: patient_id, preDoctorId: doctor_id, preDate: appointment_date, preTime: appointment_time,
+                    todayDate: getSLTimestamp().split(' ')[0],
                     errors: [{ msg: `Schedule Violation: ${doctorData.full_name} is strictly unavailable on ${selectedDay}days. Their official schedule is: ${doctorData.availability_schedule}.` }],
                     formData: req.body, currentUser: req.session.user
                 });
@@ -260,6 +304,7 @@ router.post('/book', [
                 patients,
                 doctors,
                 scheduledAppts,
+                todayDate: getSLTimestamp().split(' ')[0],
                 prePatientId: patient_id,
                 preDoctorId: doctor_id,
                 preDate: appointment_date,

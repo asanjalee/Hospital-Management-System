@@ -95,7 +95,7 @@
                             <label for="appointment_date" class="form-label fw-semibold text-dark">Appointment Date <span class="text-danger">*</span></label>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text bg-light text-muted"><i class="bi bi-calendar-event"></i></span>
-                                <input type="date" id="appointment_date" name="appointment_date" class="form-control" value="<%= formData.appointment_date || preDate %>" required>
+                                <input type="date" id="appointment_date" name="appointment_date" class="form-control" value="<%= formData.appointment_date || preDate %>" min="<%= typeof todayDate !== 'undefined' ? todayDate : '' %>" required>
                             </div>
                         </div>
 
@@ -103,7 +103,14 @@
                         <div class="mb-4">
                             <label class="form-label fw-semibold text-dark mb-2">Select Time Slot <span class="text-danger">*</span></label>
                             <% 
-                                const timeSlots = ['08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM'];
+                                const timeSlots = [];
+                                for(let h=8; h<=20; h++) {
+                                    let hStr = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+                                    hStr = hStr.toString().padStart(2, '0');
+                                    let ampm = h < 12 ? 'AM' : 'PM';
+                                    timeSlots.push(`${hStr}:00 ${ampm}`);
+                                    if(h !== 20) timeSlots.push(`${hStr}:30 ${ampm}`);
+                                }
                                 const selectedTime = formData.appointment_time || preTime;
                             %>
                             <div class="row g-2">
@@ -170,9 +177,14 @@
             timeInputs.forEach(input => { 
                 input.disabled = false; 
                 input.parentElement.style.opacity = '1'; 
+                input.parentElement.style.display = 'block';
                 
-                // Clear any "Booked" text overrides
+                // Clear any "Booked" or "Elapsed" CSS overrides
                 const label = input.nextElementSibling;
+                label.classList.remove('btn-light', 'text-muted', 'border');
+                label.classList.add('btn-outline-primary');
+                
+                // Clear any text overrides
                 if(label.getAttribute('data-original-text')) {
                     label.innerHTML = label.getAttribute('data-original-text');
                 } else {
@@ -202,7 +214,7 @@
                 timeInputs.forEach(input => { 
                     input.checked = false;
                     input.disabled = true; 
-                    input.parentElement.style.opacity = '0.4';
+                    input.parentElement.style.display = 'none';
                 });
                 
                 const warningDiv = document.createElement('div');
@@ -221,13 +233,34 @@
                 if (startNum > 0 && endNum > 0) {
                     timeInputs.forEach(input => {
                         const slotNum = parseTimeStr(input.value);
-                        if (slotNum < startNum || slotNum > endNum) {
+                        // Hide slots extending prior to start, and strictly block slots extending directly past the end threshold
+                        if (slotNum < startNum || slotNum >= endNum) {
                             input.checked = false;
                             input.disabled = true;
-                            input.parentElement.style.opacity = '0.4';
+                            input.parentElement.style.display = 'none';
                         }
                     });
                 }
+            }
+
+            // Detect past time slots for TODAY using dynamic bounding
+            const staticToday = '<%= typeof todayDate !== "undefined" ? todayDate : "" %>';
+            if (dateStr === staticToday) {
+                const now = new Date();
+                // We use local client time hours just for UI visual locking, backend firmly enforces it via server time
+                const currentH = now.getHours() + (now.getMinutes() / 60);
+                timeInputs.forEach(input => {
+                    const slotNum = parseTimeStr(input.value);
+                    if (slotNum <= currentH) {
+                        input.checked = false;
+                        input.disabled = true;
+                        input.parentElement.style.opacity = '0.3';
+                        const label = input.nextElementSibling;
+                        label.classList.remove('btn-outline-primary');
+                        label.classList.add('btn-light', 'text-muted', 'border');
+                        label.innerHTML = `<i class="bi bi-clock-history me-1 text-secondary"></i> Elapsed`;
+                    }
+                });
             }
 
             // Detect already-booked double-booking slots natively from DB snapshot
