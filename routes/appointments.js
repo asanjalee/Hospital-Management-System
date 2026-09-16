@@ -145,7 +145,7 @@ router.get('/book', async (req, res) => {
 
         // Fetch available doctors
         const doctors = await queryAll(`
-            SELECT doc.id, u.full_name, doc.specialization, doc.room_number, doc.consultation_fee, d.department_name
+            SELECT doc.id, doc.availability_schedule, u.full_name, doc.specialization, doc.room_number, doc.consultation_fee, d.department_name
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
             JOIN departments d ON doc.department_id = d.id
@@ -153,12 +153,16 @@ router.get('/book', async (req, res) => {
             ORDER BY u.full_name ASC
         `) || [];
 
+        // Fetch all upcoming booked slots across all doctors to block double bookings dynamically on the client
+        const scheduledAppts = await queryAll(`SELECT doctor_id, DATE_FORMAT(appointment_date, '%Y-%m-%d') as date_str, appointment_time FROM appointments WHERE status = 'Scheduled' AND appointment_date >= CURDATE()`) || [];
+
         res.render('appointments/book', {
             title: 'Book New Appointment',
             activeMenu: 'appointments',
             autoNumber,
             patients,
             doctors,
+            scheduledAppts,
             prePatientId,
             preDoctorId,
             preDate,
@@ -191,7 +195,8 @@ router.post('/book', [
     const errors = validationResult(req);
 
     const patients = await queryAll('SELECT id, patient_uid, first_name, last_name, phone FROM patients WHERE is_active = 1 ORDER BY first_name ASC') || [];
-    const doctors = await queryAll('SELECT doc.id, u.full_name, doc.specialization, doc.room_number, doc.consultation_fee, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
+    const doctors = await queryAll('SELECT doc.id, doc.availability_schedule, u.full_name, doc.specialization, doc.room_number, doc.consultation_fee, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
+    const scheduledAppts = await queryAll(`SELECT doctor_id, DATE_FORMAT(appointment_date, '%Y-%m-%d') as date_str, appointment_time FROM appointments WHERE status = 'Scheduled' AND appointment_date >= CURDATE()`) || [];
 
     if (!errors.isEmpty()) {
         return res.render('appointments/book', {
@@ -200,6 +205,7 @@ router.post('/book', [
             autoNumber: req.body.appointment_number || await generateAppointmentNumber(),
             patients,
             doctors,
+            scheduledAppts,
             prePatientId: req.body.patient_id || '',
             preDoctorId: req.body.doctor_id || '',
             preDate: req.body.appointment_date || '',
@@ -213,7 +219,34 @@ router.post('/book', [
     const { appointment_number, patient_id, doctor_id, appointment_date, appointment_time, reason, notes } = req.body;
 
     try {
-        // Conflict Check: Check if doctor is already booked at the exact same date & time
+        // 1. Strict Schedule Validation Check
+        const doctorData = doctors.find(d => d.id == doctor_id);
+        if (doctorData && doctorData.availability_schedule) {
+            const dateObj = new Date(appointment_date);
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const selectedDay = dayNames[dateObj.getDay()];
+            
+            const scheduleLower = doctorData.availability_schedule.toLowerCase();
+            const dayLower = selectedDay.toLowerCase();
+            
+            let worksToday = false;
+            if (scheduleLower.includes('everyday') || scheduleLower.includes('daily')) worksToday = true;
+            else if ((scheduleLower.includes('mon - fri') || scheduleLower.includes('mon-fri') || scheduleLower.includes('weekdays')) && ['mon','tue','wed','thu','fri'].includes(dayLower)) worksToday = true;
+            else if (scheduleLower.includes(dayLower)) worksToday = true;
+            
+            if (!worksToday) {
+                return res.render('appointments/book', {
+                    title: 'Book New Appointment',
+                    activeMenu: 'appointments',
+                    autoNumber: appointment_number || await generateAppointmentNumber(),
+                    patients, doctors, scheduledAppts, prePatientId: patient_id, preDoctorId: doctor_id, preDate: appointment_date, preTime: appointment_time,
+                    errors: [{ msg: `Schedule Violation: ${doctorData.full_name} is strictly unavailable on ${selectedDay}days. Their official schedule is: ${doctorData.availability_schedule}.` }],
+                    formData: req.body, currentUser: req.session.user
+                });
+            }
+        }
+
+        // 2. Conflict Check: Check if doctor is already booked at the exact same date & time
         const conflict = await queryOne(`
             SELECT id FROM appointments 
             WHERE doctor_id = ? AND appointment_date = ? AND appointment_time = ? AND status = 'Scheduled'
@@ -226,6 +259,7 @@ router.post('/book', [
                 autoNumber: appointment_number || await generateAppointmentNumber(),
                 patients,
                 doctors,
+                scheduledAppts,
                 prePatientId: patient_id,
                 preDoctorId: doctor_id,
                 preDate: appointment_date,
