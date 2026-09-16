@@ -44,7 +44,7 @@ router.get('/', async (req, res) => {
     let sql = `
         SELECT a.*, 
                p.patient_uid, p.first_name as patient_first_name, p.last_name as patient_last_name, p.phone as patient_phone, p.gender as patient_gender,
-               u.full_name as doctor_name, doc.specialization, doc.room_number, doc.consultation_fee,
+               u.full_name as doctor_name, doc.specialization, doc.room_number, doc.consultation_fee, doc.availability_schedule,
                d.department_name
         FROM appointments a
         JOIN patients p ON a.patient_id = p.id
@@ -79,7 +79,37 @@ router.get('/', async (req, res) => {
     sql += ` ORDER BY a.id DESC`;
 
     try {
-        const appointments = await queryAll(sql, params) || [];
+        let appointments = await queryAll(sql, params) || [];
+
+        const slTimestamp = getSLTimestamp();
+        const todayStrTime = slTimestamp.split(' ')[0];
+        const currTimeStrTime = slTimestamp.split(' ')[1];
+        const currHTime = parseInt(currTimeStrTime.split(':')[0], 10);
+        const currMTime = parseInt(currTimeStrTime.split(':')[1], 10);
+
+        appointments = appointments.map(apt => {
+            apt.isCompletable = false;
+            if (apt.status === 'Scheduled') {
+                if (apt.appointment_date < todayStrTime) {
+                    apt.isCompletable = true;
+                } else if (apt.appointment_date === todayStrTime && apt.availability_schedule) {
+                    const shiftMatch = apt.availability_schedule.match(/\(\s*([0-9]{1,2}):([0-9]{2})\s*(AM|PM)/i);
+                    if (shiftMatch) {
+                        let shiftH = parseInt(shiftMatch[1], 10);
+                        const shiftM = parseInt(shiftMatch[2], 10);
+                        const shiftAmPm = shiftMatch[3].toUpperCase();
+                        if (shiftAmPm === 'PM' && shiftH < 12) shiftH += 12;
+                        if (shiftAmPm === 'AM' && shiftH === 12) shiftH = 0;
+                        if (currHTime > shiftH || (currHTime === shiftH && currMTime >= shiftM)) {
+                            apt.isCompletable = true;
+                        }
+                    } else {
+                        apt.isCompletable = true;
+                    }
+                }
+            }
+            return apt;
+        });
 
         // Active doctors for filter dropdown
         const doctors = await queryAll(`
@@ -365,7 +395,7 @@ router.get('/view/:id', async (req, res) => {
         const appointment = await queryOne(`
             SELECT a.*, 
                    p.patient_uid, p.first_name as patient_first_name, p.last_name as patient_last_name, p.phone as patient_phone, p.email as patient_email, p.gender as patient_gender, p.date_of_birth, p.blood_group, p.id as patient_pk,
-                   u.full_name as doctor_name, doc.specialization, doc.room_number, doc.consultation_fee, doc.id as doctor_pk,
+                   u.full_name as doctor_name, doc.availability_schedule, doc.specialization, doc.room_number, doc.consultation_fee, doc.id as doctor_pk,
                    d.department_name, creator.full_name as created_by_name
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
@@ -385,12 +415,42 @@ router.get('/view/:id', async (req, res) => {
         const medicalRecords = await queryAll(`
             SELECT * FROM medical_history WHERE patient_id = ? ORDER BY visit_date DESC LIMIT 3
         `, [appointment.patient_pk]) || [];
+        // Determine if appointment is completable natively based on current SL time and shift start time
+        let isCompletable = false;
+        if (appointment.status === 'Scheduled') {
+            const slTimestamp = getSLTimestamp();
+            const todayStr = slTimestamp.split(' ')[0];
+            const currTimeStr = slTimestamp.split(' ')[1];
+            
+            if (appointment.appointment_date < todayStr) {
+                isCompletable = true;
+            } else if (appointment.appointment_date === todayStr && appointment.availability_schedule) {
+                const shiftMatch = appointment.availability_schedule.match(/\(\s*([0-9]{1,2}):([0-9]{2})\s*(AM|PM)/i);
+                if (shiftMatch) {
+                    let shiftH = parseInt(shiftMatch[1], 10);
+                    const shiftM = parseInt(shiftMatch[2], 10);
+                    const shiftAmPm = shiftMatch[3].toUpperCase();
+                    if (shiftAmPm === 'PM' && shiftH < 12) shiftH += 12;
+                    if (shiftAmPm === 'AM' && shiftH === 12) shiftH = 0;
+                    
+                    const currH = parseInt(currTimeStr.split(':')[0], 10);
+                    const currM = parseInt(currTimeStr.split(':')[1], 10);
+                    
+                    if (currH > shiftH || (currH === shiftH && currM >= shiftM)) {
+                        isCompletable = true;
+                    }
+                } else {
+                    isCompletable = true;
+                }
+            }
+        }
 
         res.render('appointments/view', {
             title: `Appointment ${appointment.appointment_number}`,
             activeMenu: 'appointments',
             appointment,
             medicalRecords,
+            isCompletable,
             currentUser: req.session.user
         });
     } catch (err) {
@@ -414,10 +474,46 @@ router.post('/status/:id', async (req, res) => {
     }
 
     try {
-        const apt = await queryOne('SELECT appointment_number FROM appointments WHERE id = ?', [aptId]);
+        const apt = await queryOne(`
+            SELECT a.*, d.availability_schedule 
+            FROM appointments a 
+            JOIN doctors d ON a.doctor_id = d.id 
+            WHERE a.id = ?
+        `, [aptId]);
         if (!apt) {
             req.session.errorMessage = 'Appointment record not found.';
             return res.redirect('/appointments');
+        }
+
+        if (status === 'Completed') {
+            const slTimestamp = getSLTimestamp();
+            const todayStr = slTimestamp.split(' ')[0];
+            const currTimeStr = slTimestamp.split(' ')[1];
+            
+            if (apt.appointment_date > todayStr) {
+                req.session.errorMessage = 'Strict Violation: Cannot complete an appointment scheduled for a future date. It must happen today or in the past.';
+                return res.redirect(`/appointments/view/${aptId}`);
+            }
+            
+            if (apt.appointment_date === todayStr && apt.availability_schedule) {
+                const shiftMatch = apt.availability_schedule.match(/\(\s*([0-9]{1,2}):([0-9]{2})\s*(AM|PM)/i);
+                if (shiftMatch) {
+                    let shiftH = parseInt(shiftMatch[1], 10);
+                    const shiftM = parseInt(shiftMatch[2], 10);
+                    const shiftAmPm = shiftMatch[3].toUpperCase();
+                    
+                    if (shiftAmPm === 'PM' && shiftH < 12) shiftH += 12;
+                    if (shiftAmPm === 'AM' && shiftH === 12) shiftH = 0;
+                    
+                    const currH = parseInt(currTimeStr.split(':')[0], 10);
+                    const currM = parseInt(currTimeStr.split(':')[1], 10);
+                    
+                    if (currH < shiftH || (currH === shiftH && currM < shiftM)) {
+                        req.session.errorMessage = `Violation: Cannot complete today's appointment before the scheduled medical shift begins.`;
+                        return res.redirect(`/appointments/view/${aptId}`);
+                    }
+                }
+            }
         }
 
         await execute(`

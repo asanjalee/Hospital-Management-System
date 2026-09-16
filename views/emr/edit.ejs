@@ -38,8 +38,9 @@
                             <span class="text-primary small fw-semibold"><%= record.patient_uid %></span>
                         </div>
                         <div class="mb-3">
-                            <label class="text-muted small">Visit Date:</label>
-                            <div class="fw-semibold text-dark"><%= record.visit_date %></div>
+                            <label for="visit_date" class="form-label text-muted small fw-semibold mb-1">Visit Date: <span class="text-danger">*</span></label>
+                            <input type="date" id="visit_date" name="visit_date" class="form-control font-monospace" value="<%= record.visit_date %>" max="<%= todayStr %>" required>
+                            <div class="form-text" style="font-size:0.75rem;">Modify historical records up to the current date.</div>
                         </div>
                     </div>
                 </div>

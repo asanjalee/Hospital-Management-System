@@ -103,8 +103,8 @@ router.get('/add', async (req, res) => {
     try {
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name, gender, date_of_birth FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC`) || [];
-        const appointments = await queryAll(`
-            SELECT a.id, a.appointment_number, a.appointment_date, p.id as patient_id, p.patient_uid, p.first_name, p.last_name, u.full_name as doctor_name
+        let appointments = await queryAll(`
+            SELECT a.id, a.appointment_number, a.appointment_date, p.id as patient_id, p.patient_uid, p.first_name, p.last_name, u.full_name as doctor_name, doc.availability_schedule
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
             JOIN doctors doc ON a.doctor_id = doc.id
@@ -113,7 +113,28 @@ router.get('/add', async (req, res) => {
             ORDER BY a.appointment_date DESC
         `) || [];
 
-        const todayStr = new Date().toISOString().split('T')[0];
+        const slTimestamp = getSLTimestamp();
+        const todayStr = slTimestamp.split(' ')[0];
+        const currTimeStr = slTimestamp.split(' ')[1];
+        const currH = parseInt(currTimeStr.split(':')[0], 10);
+        const currM = parseInt(currTimeStr.split(':')[1], 10);
+
+        appointments = appointments.filter(apt => {
+            if (apt.appointment_date < todayStr) return true;
+            if (apt.appointment_date === todayStr && apt.availability_schedule) {
+                const shiftMatch = apt.availability_schedule.match(/\(\s*([0-9]{1,2}):([0-9]{2})\s*(AM|PM)/i);
+                if (shiftMatch) {
+                    let shiftH = parseInt(shiftMatch[1], 10);
+                    const shiftM = parseInt(shiftMatch[2], 10);
+                    const shiftAmPm = shiftMatch[3].toUpperCase();
+                    if (shiftAmPm === 'PM' && shiftH < 12) shiftH += 12;
+                    if (shiftAmPm === 'AM' && shiftH === 12) shiftH = 0;
+                    if (currH < shiftH || (currH === shiftH && currM < shiftM)) return false;
+                }
+            }
+            return true;
+        });
+
 
         res.render('emr/add', {
             title: 'Add Medical Record',
@@ -161,7 +182,29 @@ router.post('/add', [
     if (!errors.isEmpty()) {
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC`) || [];
-        const appointments = await queryAll(`SELECT a.id, a.appointment_number, a.appointment_date, p.id as patient_id, p.patient_uid, p.first_name, p.last_name FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.status IN ('Scheduled', 'Completed') AND a.appointment_date <= CURDATE() ORDER BY a.appointment_date DESC`) || [];
+        let appointments = await queryAll(`SELECT a.id, a.appointment_number, a.appointment_date, p.id as patient_id, p.patient_uid, p.first_name, p.last_name, doc.availability_schedule FROM appointments a JOIN patients p ON a.patient_id = p.id JOIN doctors doc ON a.doctor_id = doc.id WHERE a.status IN ('Scheduled', 'Completed') AND a.appointment_date <= CURDATE() ORDER BY a.appointment_date DESC`) || [];
+
+        const slTimestamp = getSLTimestamp();
+        const todayStr = slTimestamp.split(' ')[0];
+        const currTimeStr = slTimestamp.split(' ')[1];
+        const currH = parseInt(currTimeStr.split(':')[0], 10);
+        const currM = parseInt(currTimeStr.split(':')[1], 10);
+
+        appointments = appointments.filter(apt => {
+            if (apt.appointment_date < todayStr) return true;
+            if (apt.appointment_date === todayStr && apt.availability_schedule) {
+                const shiftMatch = apt.availability_schedule.match(/\(\s*([0-9]{1,2}):([0-9]{2})\s*(AM|PM)/i);
+                if (shiftMatch) {
+                    let shiftH = parseInt(shiftMatch[1], 10);
+                    const shiftM = parseInt(shiftMatch[2], 10);
+                    const shiftAmPm = shiftMatch[3].toUpperCase();
+                    if (shiftAmPm === 'PM' && shiftH < 12) shiftH += 12;
+                    if (shiftAmPm === 'AM' && shiftH === 12) shiftH = 0;
+                    if (currH < shiftH || (currH === shiftH && currM < shiftM)) return false;
+                }
+            }
+            return true;
+        });
 
         return res.render('emr/add', {
             title: 'Add Medical Record',
@@ -284,6 +327,7 @@ router.get('/edit/:id', async (req, res) => {
             record,
             patients,
             doctors,
+            todayStr: new Date().toISOString().split('T')[0],
             errors: [],
             currentUser: req.session.user
         });
@@ -298,6 +342,11 @@ router.get('/edit/:id', async (req, res) => {
 // POST /emr/edit/:id — Update Medical Record
 // -------------------------------------------------
 router.post('/edit/:id', [
+    body('visit_date').notEmpty().isISO8601().withMessage('Valid visit date is required')
+        .custom(value => {
+            if (new Date(value) > new Date()) throw new Error('Visit date cannot be in the future. Please correct this historical date.');
+            return true;
+        }),
     body('diagnosis').trim().notEmpty().withMessage('Medical diagnosis is required'),
     body('symptoms').trim().notEmpty().withMessage('Symptoms description is required'),
     body('vitals_bp').optional({ checkFalsy: true }).matches(/^\d{2,3}\/\d{2,3}$/).withMessage('Blood pressure must be strictly numeric format (e.g., 120/80)'),
@@ -318,23 +367,25 @@ router.post('/edit/:id', [
             record,
             patients,
             doctors,
+            todayStr: new Date().toISOString().split('T')[0],
             errors: errors.array(),
             currentUser: req.session.user
         });
     }
 
     const {
-        diagnosis, symptoms, treatment_plan, prescription, doctor_notes,
+        visit_date, diagnosis, symptoms, treatment_plan, prescription, doctor_notes,
         vitals_bp, vitals_pulse, vitals_temp, vitals_weight
     } = req.body;
 
     try {
         await execute(`
             UPDATE medical_history SET
-                diagnosis = ?, symptoms = ?, treatment_plan = ?, prescription = ?, doctor_notes = ?,
+                visit_date = ?, diagnosis = ?, symptoms = ?, treatment_plan = ?, prescription = ?, doctor_notes = ?,
                 vitals_bp = ?, vitals_pulse = ?, vitals_temp = ?, vitals_weight = ?
             WHERE id = ?
         `, [
+            visit_date,
             diagnosis.trim(),
             symptoms.trim(),
             treatment_plan ? treatment_plan.trim() : null,
