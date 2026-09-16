@@ -461,7 +461,7 @@ router.get('/reschedule/:id', async (req, res) => {
         }
 
         const doctors = await queryAll(`
-            SELECT doc.id, u.full_name, doc.specialization, d.department_name
+            SELECT doc.id, doc.availability_schedule, u.full_name, doc.specialization, d.department_name
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
             JOIN departments d ON doc.department_id = d.id
@@ -469,11 +469,15 @@ router.get('/reschedule/:id', async (req, res) => {
             ORDER BY u.full_name ASC
         `) || [];
 
+        const scheduledAppts = await queryAll(`SELECT doctor_id, DATE_FORMAT(appointment_date, '%Y-%m-%d') as date_str, appointment_time FROM appointments WHERE status = 'Scheduled' AND appointment_date >= CURDATE()`) || [];
+
         res.render('appointments/reschedule', {
             title: `Reschedule ${appointment.appointment_number}`,
             activeMenu: 'appointments',
             appointment,
             doctors,
+            scheduledAppts,
+            todayDate: getSLTimestamp().split(' ')[0],
             errors: [],
             currentUser: req.session.user
         });
@@ -497,12 +501,15 @@ router.post('/reschedule/:id', [
 
     if (!errors.isEmpty()) {
         const appointment = { ...req.body, id: aptId };
-        const doctors = await queryAll('SELECT doc.id, u.full_name, doc.specialization, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
+        const doctors = await queryAll('SELECT doc.id, doc.availability_schedule, u.full_name, doc.specialization, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
+        const scheduledAppts = await queryAll(`SELECT doctor_id, DATE_FORMAT(appointment_date, '%Y-%m-%d') as date_str, appointment_time FROM appointments WHERE status = 'Scheduled' AND appointment_date >= CURDATE()`) || [];
         return res.render('appointments/reschedule', {
             title: 'Reschedule Appointment',
             activeMenu: 'appointments',
             appointment,
             doctors,
+            scheduledAppts,
+            todayDate: getSLTimestamp().split(' ')[0],
             errors: errors.array(),
             currentUser: req.session.user
         });
@@ -517,6 +524,69 @@ router.post('/reschedule/:id', [
             return res.redirect('/appointments');
         }
 
+        const doctors = await queryAll('SELECT doc.id, doc.availability_schedule, u.full_name, doc.specialization, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
+        const scheduledAppts = await queryAll(`SELECT doctor_id, DATE_FORMAT(appointment_date, '%Y-%m-%d') as date_str, appointment_time FROM appointments WHERE status = 'Scheduled' AND appointment_date >= CURDATE()`) || [];
+        const combinedApt = { ...req.body, id: aptId, appointment_number: existingApt.appointment_number, patient_first_name: '', patient_last_name: '', patient_uid: '' }; // Dummy fills to avoid ejs undefined crashes in error rendering if missing
+
+        const slTimeFull = getSLTimestamp();
+        const currentSLDate = slTimeFull.split(' ')[0];
+        
+        if (appointment_date < currentSLDate) {
+            return res.render('appointments/reschedule', {
+                title: 'Reschedule Appointment', activeMenu: 'appointments',
+                appointment: combinedApt, doctors, scheduledAppts, todayDate: currentSLDate,
+                errors: [{ msg: 'Cannot reschedule appointments to past dates. Please select today or a future date.' }],
+                currentUser: req.session.user
+            });
+        }
+        
+        if (appointment_date === currentSLDate) {
+            const timeParts = appointment_time.trim().split(' ');
+            if (timeParts.length === 2) {
+                const clockParts = timeParts[0].split(':');
+                let h = parseInt(clockParts[0], 10);
+                const m = parseInt(clockParts[1], 10);
+                if (timeParts[1].toUpperCase() === 'PM' && h < 12) h += 12;
+                if (timeParts[1].toUpperCase() === 'AM' && h === 12) h = 0;
+                
+                const currTime = slTimeFull.split(' ')[1].split(':');
+                const currH = parseInt(currTime[0], 10);
+                const currM = parseInt(currTime[1], 10);
+                
+                if (h < currH || (h === currH && m <= currM)) {
+                    return res.render('appointments/reschedule', {
+                        title: 'Reschedule Appointment', activeMenu: 'appointments',
+                        appointment: combinedApt, doctors, scheduledAppts, todayDate: currentSLDate,
+                        errors: [{ msg: `Cannot book past time slots for today. The time ${appointment_time} has already elapsed.` }],
+                        currentUser: req.session.user
+                    });
+                }
+            }
+        }
+        
+        const doctorData = doctors.find(d => d.id == doctor_id);
+        if (doctorData && doctorData.availability_schedule) {
+            const dateObj = new Date(appointment_date);
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const selectedDay = dayNames[dateObj.getDay()];
+            const scheduleLower = doctorData.availability_schedule.toLowerCase();
+            const dayLower = selectedDay.toLowerCase();
+            let worksToday = false;
+            
+            if (scheduleLower.includes('everyday') || scheduleLower.includes('daily')) worksToday = true;
+            else if ((scheduleLower.includes('mon - fri') || scheduleLower.includes('mon-fri') || scheduleLower.includes('weekdays')) && ['mon','tue','wed','thu','fri'].includes(dayLower)) worksToday = true;
+            else if (scheduleLower.includes(dayLower)) worksToday = true;
+            
+            if (!worksToday) {
+                return res.render('appointments/reschedule', {
+                    title: 'Reschedule Appointment', activeMenu: 'appointments',
+                    appointment: combinedApt, doctors, scheduledAppts, todayDate: currentSLDate,
+                    errors: [{ msg: `Schedule Violation: ${doctorData.full_name} is strictly unavailable on ${selectedDay}days. Their official schedule is: ${doctorData.availability_schedule}.` }],
+                    currentUser: req.session.user
+                });
+            }
+        }
+
         // Conflict check excluding current appointment
         const conflict = await queryOne(`
             SELECT id FROM appointments
@@ -524,13 +594,13 @@ router.post('/reschedule/:id', [
         `, [doctor_id, appointment_date, appointment_time, aptId]);
 
         if (conflict) {
-            const doctors = await queryAll('SELECT doc.id, u.full_name, doc.specialization, d.department_name FROM doctors doc JOIN users u ON doc.user_id = u.id JOIN departments d ON doc.department_id = d.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC') || [];
-            const appointment = { ...req.body, id: aptId, appointment_number: existingApt.appointment_number };
             return res.render('appointments/reschedule', {
                 title: 'Reschedule Appointment',
                 activeMenu: 'appointments',
-                appointment,
+                appointment: combinedApt,
                 doctors,
+                scheduledAppts,
+                todayDate: currentSLDate,
                 errors: [{ msg: 'The selected doctor is already booked for this date and time slot.' }],
                 currentUser: req.session.user
             });

@@ -81,14 +81,21 @@
                         <!-- Select New Date -->
                         <div class="mb-4">
                             <label for="appointment_date" class="form-label fw-semibold text-dark">New Appointment Date <span class="text-danger">*</span></label>
-                            <input type="date" id="appointment_date" name="appointment_date" class="form-control" value="<%= appointment.appointment_date %>" required>
+                            <input type="date" id="appointment_date" name="appointment_date" class="form-control" value="<%= appointment.appointment_date %>" min="<%= typeof todayDate !== 'undefined' ? todayDate : '' %>" required>
                         </div>
 
                         <!-- Select New Time Slot -->
                         <div class="mb-4">
                             <label class="form-label fw-semibold text-dark mb-2">New Time Slot <span class="text-danger">*</span></label>
                             <% 
-                                const timeSlots = ['08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM'];
+                                const timeSlots = [];
+                                for(let h=8; h<=20; h++) {
+                                    let hStr = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+                                    hStr = hStr.toString().padStart(2, '0');
+                                    let ampm = h < 12 ? 'AM' : 'PM';
+                                    timeSlots.push(`${hStr}:00 ${ampm}`);
+                                    if(h !== 20) timeSlots.push(`${hStr}:30 ${ampm}`);
+                                }
                             %>
                             <div class="row g-2">
                                 <% timeSlots.forEach((slot, idx) => { %>
@@ -121,3 +128,151 @@
     </form>
 
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Using explicit parsing from native arrays for frontend security locks
+        const doctorsData = <%- JSON.stringify(typeof doctors !== 'undefined' ? doctors.map(d => ({ id: d.id, full_name: d.full_name, schedule: d.availability_schedule })) : []) %>;
+        const bookedSlots = <%- typeof scheduledAppts !== 'undefined' ? JSON.stringify(scheduledAppts.map(a => ({ doc_id: a.doctor_id, date_str: a.date_str, time: a.appointment_time }))) : '[]' %>;
+        const currentAptId = "<%= appointment.id %>"; // Do not lock out the appointment's own current designated time if already selected.
+
+        const doctorSelect = document.getElementById('doctor_id');
+        const dateInput = document.getElementById('appointment_date');
+        const timeGrid = document.querySelector('.row.g-2');
+        const timeInputs = document.querySelectorAll('input.btn-check[name="appointment_time"]');
+
+        function parseTimeStr(tStr) {
+            const parts = tStr.trim().split(' ');
+            if (parts.length < 2) return 0;
+            const timeParts = parts[0].split(':');
+            let h = parseInt(timeParts[0], 10);
+            const m = parseInt(timeParts[1], 10);
+            if (parts[1].toUpperCase() === 'PM' && h < 12) h += 12;
+            if (parts[1].toUpperCase() === 'AM' && h === 12) h = 0;
+            return h + (m / 60);
+        }
+
+        function updateScheduleUI() {
+            const docId = doctorSelect.value;
+            const dateStr = dateInput.value;
+            
+            // Un-disable everything first & flush visual locks
+            timeInputs.forEach(input => { 
+                input.disabled = false; 
+                input.parentElement.style.opacity = '1'; 
+                input.parentElement.style.display = 'block';
+                
+                // Clear any CSS overrides
+                const label = input.nextElementSibling;
+                label.classList.remove('btn-light', 'text-muted', 'border');
+                label.classList.add('btn-outline-primary');
+                
+                // Clear text overrides
+                if(label.getAttribute('data-original-text')) {
+                    label.innerHTML = label.getAttribute('data-original-text');
+                } else {
+                    label.setAttribute('data-original-text', label.innerHTML);
+                }
+            });
+            
+            let oldWarning = document.getElementById('schedule-warning');
+            if (oldWarning) oldWarning.remove();
+
+            if (!docId || !dateStr) return;
+
+            const targetDoc = doctorsData.find(d => d.id == docId);
+            if (!targetDoc || !targetDoc.schedule) return;
+
+            const schedLower = targetDoc.schedule.toLowerCase();
+            const selectedDate = new Date(dateStr);
+            const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+            const dayStr = dayNames[selectedDate.getDay()];
+
+            let worksToday = false;
+            if (schedLower.includes('everyday') || schedLower.includes('daily')) worksToday = true;
+            else if ((schedLower.includes('mon - fri') || schedLower.includes('mon-fri') || schedLower.includes('weekdays')) && ['mon','tue','wed','thu','fri'].includes(dayStr)) worksToday = true;
+            else if (schedLower.includes(dayStr)) worksToday = true;
+
+            if (!worksToday) {
+                timeInputs.forEach(input => { 
+                    input.checked = false;
+                    input.disabled = true; 
+                    input.parentElement.style.display = 'none';
+                });
+                
+                const warningDiv = document.createElement('div');
+                warningDiv.id = 'schedule-warning';
+                warningDiv.className = 'alert alert-warning py-2 mt-2 mb-3 small fw-bold shadow-sm';
+                warningDiv.innerHTML = `<i class="bi bi-calendar-x-fill me-1"></i> Unavailable: ${targetDoc.full_name} does not work on this day. <br><span class="fw-normal">Official Schedule: ${targetDoc.schedule}</span>`;
+                timeGrid.parentElement.insertBefore(warningDiv, timeGrid);
+                return;
+            }
+
+            const timeMatch = targetDoc.schedule.match(/\((.*?)-(.*?)\)/);
+            if (timeMatch) {
+                const startNum = parseTimeStr(timeMatch[1]);
+                const endNum = parseTimeStr(timeMatch[2]);
+                
+                if (startNum > 0 && endNum > 0) {
+                    timeInputs.forEach(input => {
+                        const slotNum = parseTimeStr(input.value);
+                        if (slotNum < startNum || slotNum >= endNum) {
+                            input.checked = false;
+                            input.disabled = true;
+                            input.parentElement.style.display = 'none';
+                        }
+                    });
+                }
+            }
+
+            // Detect past time slots for TODAY
+            const staticToday = '<%= typeof todayDate !== "undefined" ? todayDate : "" %>';
+            if (dateStr === staticToday) {
+                const now = new Date();
+                const currentH = now.getHours() + (now.getMinutes() / 60);
+                timeInputs.forEach(input => {
+                    const slotNum = parseTimeStr(input.value);
+                    if (slotNum <= currentH) {
+                        input.checked = false;
+                        input.disabled = true;
+                        input.parentElement.style.opacity = '0.3';
+                        const label = input.nextElementSibling;
+                        label.classList.remove('btn-outline-primary');
+                        label.classList.add('btn-light', 'text-muted', 'border');
+                        label.innerHTML = `<i class="bi bi-clock-history me-1 text-secondary"></i> Elapsed`;
+                    }
+                });
+            }
+
+            // Detect already-booked slots natively from DB snapshot (ignoring self-bookings)
+            const matchingBookings = bookedSlots.filter(b => b.doc_id == docId && b.date_str === dateStr && b.id !== currentAptId); 
+            // Note: Since scheduledAppts doesn't return `id` natively, we safely filter out our own booking based on DB status on the backend.
+            // On frontend, if it's the current identical appointment_time natively, we can just not block our own slot.
+            
+            matchingBookings.forEach(booking => {
+                timeInputs.forEach(input => {
+                    if (input.value === booking.time) {
+                        // EXCEPTION: Validate it is not literally the exact same original current appointment
+                        const currentAptTime = "<%= appointment.appointment_time %>";
+                        const currentAptDate = "<%= appointment.appointment_date %>";
+                        if (booking.time === currentAptTime && booking.date_str === currentAptDate && booking.doc_id == "<%= appointment.doctor_id %>") {
+                            return; // Retain ownership of own active appointment slot
+                        }
+                        
+                        input.checked = false;
+                        input.disabled = true;
+                        input.parentElement.style.opacity = '0.3';
+                        const label = input.nextElementSibling;
+                        label.classList.remove('btn-outline-primary');
+                        label.classList.add('btn-light', 'text-muted', 'border');
+                        label.innerHTML = `<i class="bi bi-x-circle me-1 text-danger"></i> Booked`;
+                    }
+                });
+            });
+        }
+
+        doctorSelect.addEventListener('change', updateScheduleUI);
+        dateInput.addEventListener('change', updateScheduleUI);
+        updateScheduleUI();
+    });
+</script>
