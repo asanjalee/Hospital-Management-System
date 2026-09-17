@@ -835,7 +835,7 @@ a {
    PRINT STYLESHEET (@media print)
    ==================================================== */
 @page {
-    margin: 10mm;
+    margin: 0;
 }
 
 @media print {
@@ -867,7 +867,7 @@ a {
         font-size: 10pt !important;
         line-height: 1.5 !important;
         margin: 0 !important;
-        padding: 0 !important;
+        padding: 1.5cm !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         height: auto !important;
@@ -949,13 +949,11 @@ a {
         break-inside: avoid !important;
     }
 
-    .card-header {
-        background-color: #f8fafc !important;
-        color: #0f172a !important;
-        border-bottom: 2px solid #cbd5e1 !important;
-        padding: 0.75rem 1rem !important;
-    }
 
+    .card-body > div {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
     .card-body {
         padding: 1rem !important;
     }
@@ -1050,7 +1048,7 @@ a {
     .signature-line {
         border-top: 1.5px solid #0f172a !important;
         padding-top: 8px !important;
-        margin-top: 40px !important; /* Generous space above line for physical signature or stamp */
+        margin-top: 80px !important; /* Generous space above line for physical signature or stamp */
     }
 }
 
@@ -1073,6 +1071,6 @@ a {
 .signature-line {
     border-top: 1.5px solid #0f172a;
     padding-top: 8px;
-    margin-top: 45px;
+    margin-top: 80px;
 }
 

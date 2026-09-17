@@ -288,12 +288,12 @@ router.get('/view/:id', async (req, res) => {
         `, [recId]);
 
         if (!record) {
-            req.session.errorMessage = `Medical record #${recId} not found.`;
+            req.session.errorMessage = `Medical record EMR-${String(recId).padStart(4, '0')} not found.`;
             return res.redirect('/emr');
         }
 
         res.render('emr/view', {
-            title: `Medical Record #${record.id}`,
+            title: `Medical Record EMR-${String(record.id).padStart(4, '0')}`,
             activeMenu: 'emr',
             record,
             currentUser: req.session.user
@@ -322,7 +322,7 @@ router.get('/edit/:id', async (req, res) => {
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id ORDER BY u.full_name ASC`) || [];
 
         res.render('emr/edit', {
-            title: `Edit Medical Record #${record.id}`,
+            title: `Edit Medical Record EMR-${String(record.id).padStart(4, '0')}`,
             activeMenu: 'emr',
             record,
             patients,
@@ -362,7 +362,7 @@ router.post('/edit/:id', [
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id ORDER BY u.full_name ASC`) || [];
         return res.render('emr/edit', {
-            title: `Edit Medical Record #${recId}`,
+            title: `Edit Medical Record EMR-${String(recId).padStart(4, '0')}`,
             activeMenu: 'emr',
             record,
             patients,
@@ -398,9 +398,9 @@ router.post('/edit/:id', [
             recId
         ]);
 
-        await auditLog(req.session.user.id, 'EMR_RECORD_UPDATED', 'medical_history', recId, `Updated EMR record #${recId}`, req.ip);
+        await auditLog(req.session.user.id, 'EMR_RECORD_UPDATED', 'medical_history', recId, `Updated EMR record EMR-${String(recId).padStart(4, '0')}`, req.ip);
 
-        req.session.successMessage = `Medical record #${recId} updated successfully.`;
+        req.session.successMessage = `Medical record EMR-${String(recId).padStart(4, '0')} updated successfully.`;
         res.redirect(`/emr/view/${recId}`);
 
     } catch (err) {
