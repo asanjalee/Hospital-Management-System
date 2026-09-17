@@ -244,10 +244,16 @@ router.post('/status/:id', async (req, res) => {
     }
 
     try {
-        const lab = await queryOne('SELECT request_number FROM lab_requests WHERE id = ?', [labId]);
+        const lab = await queryOne('SELECT request_number, status FROM lab_requests WHERE id = ?', [labId]);
         if (!lab) {
             req.session.errorMessage = 'Laboratory record not found.';
             return res.redirect('/laboratory');
+        }
+
+        // Prevent modification of completed lab reports
+        if (lab.status === 'Completed') {
+            req.session.errorMessage = 'Completed lab reports are locked and cannot be modified. Please raise an amendment request if necessary.';
+            return res.redirect(`/laboratory/view/${labId}`);
         }
 
         const todayStr = new Date().toISOString().split('T')[0];

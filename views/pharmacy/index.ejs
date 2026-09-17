@@ -95,13 +95,13 @@
     <div class="card border-0 shadow-sm rounded-3 mb-4 bg-white">
         <div class="card-body p-3">
             <form action="/pharmacy" method="GET" class="row g-2 align-items-center">
-                <div class="col-12 col-md-5">
+                <div class="col-12 col-md-3">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="text" name="search" class="form-control bg-light border-start-0 ps-0" placeholder="Search code, medicine name, generic name, manufacturer..." value="<%= search %>">
+                        <input type="text" name="search" class="form-control bg-light border-start-0 ps-0" placeholder="Search pharmacy..." value="<%= search %>">
                     </div>
                 </div>
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <select name="category" class="form-select bg-light">
                         <option value="">All Categories</option>
                         <% categories.forEach(c => { %>
@@ -114,6 +114,14 @@
                         <option value="">All Inventory</option>
                         <option value="low_stock" <%= filter === 'low_stock' ? 'selected' : '' %>>Low Stock Warnings</option>
                         <option value="expiring" <%= filter === 'expiring' ? 'selected' : '' %>>Expiring Soon</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <select name="sort" class="form-select bg-light" onchange="this.form.submit()">
+                        <option value="latest" <%= (typeof sort !== 'undefined' && (sort === 'latest' || sort === 'id_desc')) ? 'selected' : '' %>>Latest Added / ID</option>
+                        <option value="name_asc" <%= (typeof sort !== 'undefined' && (sort === 'name_asc' || sort === 'alpha_asc' || sort === 'a_z')) ? 'selected' : '' %>>Alphabetical (A - Z)</option>
+                        <option value="name_desc" <%= (typeof sort !== 'undefined' && (sort === 'name_desc' || sort === 'alpha_desc' || sort === 'z_a')) ? 'selected' : '' %>>Alphabetical (Z - A)</option>
+                        <option value="stock_asc" <%= (typeof sort !== 'undefined' && (sort === 'stock_asc' || sort === 'stock_low')) ? 'selected' : '' %>>Stock Level (Low to High)</option>
                     </select>
                 </div>
                 <div class="col-12 col-md-2 d-flex gap-2">
