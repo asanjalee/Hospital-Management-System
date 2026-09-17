@@ -102,6 +102,7 @@ async function syncSchema() {
             description TEXT,
             head_of_dept VARCHAR(100),
             phone VARCHAR(20),
+            department_type ENUM('Clinical', 'Operational', 'Shared') DEFAULT 'Clinical',
             is_active TINYINT DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -397,21 +398,21 @@ async function seedData() {
 
     // 2. Departments
     await p.query(`
-        INSERT INTO departments (department_name, description, head_of_dept, phone) VALUES
-        ('General Medicine',    'General medical consultations and treatments', 'Dr. Kamal Perera', '+94 11 2000001'),
-        ('Cardiology',          'Heart and cardiovascular system', 'Dr. Alexander Smith', '+94 11 2000002'),
-        ('Neurology',           'Brain and nervous system disorders', 'Dr. Sarah Jenkins', '+94 11 2000003'),
-        ('Orthopedics',         'Bones, joints, and musculoskeletal system', 'Dr. Sunil Fernando', '+94 11 2000004'),
-        ('Pediatrics',          'Medical care for infants, children, and adolescents', 'Dr. Ruwan Jayasinghe', '+94 11 2000005'),
-        ('Gynecology',          'Female reproductive system health', 'Dr. Anoma Wickramasinghe', '+94 11 2000006'),
-        ('Dermatology',         'Skin, hair, and nail conditions', 'Dr. Nimal Gunaratne', '+94 11 2000007'),
-        ('Ophthalmology',       'Eye care and vision', 'Dr. Chitra Fonseka', '+94 11 2000008'),
-        ('ENT',                 'Ear, Nose, and Throat', 'Dr. Sanath Alwis', '+94 11 2000009'),
-        ('Radiology',           'Medical imaging and diagnostics', 'Dr. Priyantha Silva', '+94 11 2000010'),
-        ('Pathology',           'Laboratory analysis of body fluids and tissues', 'Dr. Dilani Ranasinghe', '+94 11 2000011'),
-        ('Pharmacy',            'Medicine dispensing and inventory', 'Mr. Asanka Jayawardena', '+94 11 2000012'),
-        ('Emergency',           'Emergency and trauma care', 'Dr. Mahesh Senanayake', '+94 11 2000013'),
-        ('Administration',      'Hospital administration and management', 'Mr. D. S. Senanayake', '+94 11 2000014');
+        INSERT INTO departments (department_name, description, head_of_dept, phone, department_type) VALUES
+        ('General Medicine',    'General medical consultations and treatments', 'Dr. Kamal Perera', '+94 11 2000001', 'Clinical'),
+        ('Cardiology',          'Heart and cardiovascular system', 'Dr. Alexander Smith', '+94 11 2000002', 'Clinical'),
+        ('Neurology',           'Brain and nervous system disorders', 'Dr. Sarah Jenkins', '+94 11 2000003', 'Clinical'),
+        ('Orthopedics',         'Bones, joints, and musculoskeletal system', 'Dr. Sunil Fernando', '+94 11 2000004', 'Clinical'),
+        ('Pediatrics',          'Medical care for infants, children, and adolescents', 'Dr. Ruwan Jayasinghe', '+94 11 2000005', 'Clinical'),
+        ('Gynecology',          'Female reproductive system health', 'Dr. Anoma Wickramasinghe', '+94 11 2000006', 'Clinical'),
+        ('Dermatology',         'Skin, hair, and nail conditions', 'Dr. Nimal Gunaratne', '+94 11 2000007', 'Clinical'),
+        ('Ophthalmology',       'Eye care and vision', 'Dr. Chitra Fonseka', '+94 11 2000008', 'Clinical'),
+        ('ENT',                 'Ear, Nose, and Throat', 'Dr. Sanath Alwis', '+94 11 2000009', 'Clinical'),
+        ('Radiology',           'Medical imaging and diagnostics', 'Dr. Priyantha Silva', '+94 11 2000010', 'Shared'),
+        ('Pathology',           'Laboratory analysis of body fluids and tissues', 'Dr. Dilani Ranasinghe', '+94 11 2000011', 'Shared'),
+        ('Pharmacy',            'Medicine dispensing and inventory', 'Mr. Asanka Jayawardena', '+94 11 2000012', 'Shared'),
+        ('Emergency',           'Emergency and trauma care', 'Dr. Mahesh Senanayake', '+94 11 2000013', 'Shared'),
+        ('Administration',      'Hospital administration and management', 'Mr. D. S. Senanayake', '+94 11 2000014', 'Operational');
     `);
 
     // Fetch created IDs for references

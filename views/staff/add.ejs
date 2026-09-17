@@ -20,7 +20,7 @@
 
 <div class="card border-0 shadow-sm rounded-3">
     <div class="card-body p-4">
-        <form action="/staff/add" method="POST">
+        <form action="/staff/add" method="POST" novalidate>
             <!-- Employee Code & Basic Info -->
             <h6 class="fw-bold text-primary mb-3 text-uppercase small tracking-wide">1. Basic Employee Information</h6>
             <div class="row g-3 mb-4">
@@ -47,11 +47,13 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">Phone Number</label>
-                    <input type="tel" name="phone" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.phone || '' : '' %>" placeholder="+94 77 1234567">
+                    <input type="tel" name="phone" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.phone || '' : '' %>" placeholder="+94771234567" pattern="^\+94\d{9}$" title="Format: +94xxxxxxxxx (e.g., +94771234567)">
+                    <small class="text-muted d-block mt-1">Format: +94XXXXXXXXX (e.g. +94771234567)</small>
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">NIC Number</label>
-                    <input type="text" name="nic_number" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.nic_number || '' : '' %>" placeholder="e.g. 198512300456">
+                    <input type="text" name="nic_number" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.nic_number || '' : '' %>" placeholder="e.g. 851230456V or 198512300456" pattern="^([0-9]{9}[xXvV]|[0-9]{12})$" title="Format: 9 digits + V/X or 12 digits">
+                    <small class="text-muted d-block mt-1">Format: 9-digits+V/X (851230456V) or 12-digits</small>
                 </div>
             </div>
 
@@ -92,7 +94,7 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">Monthly Salary (LKR)</label>
-                    <input type="number" step="0.01" name="salary" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.salary || '75000.00' : '75000.00' %>">
+                    <input type="number" step="0.01" min="0" name="salary" class="form-control" value="<%= typeof formData !== 'undefined' ? formData.salary || '75000.00' : '75000.00' %>">
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">Employment Status</label>

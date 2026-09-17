@@ -108,6 +108,16 @@ router.get('/', async (req, res) => {
             pendingLeaves: (await queryOne('SELECT COUNT(*) as cnt FROM staff_leaves WHERE status = "Pending"'))?.cnt || 0
         };
 
+        // Fetch Role-wise Distribution (Excluding non-HR System Roles)
+        const roleDistribution = await queryAll(`
+            SELECT r.role_name, COUNT(s.id) as staff_count 
+            FROM roles r 
+            LEFT JOIN staff s ON r.id = s.role_id AND s.is_active = 1 AND s.employment_status != 'Terminated'
+            WHERE r.role_name NOT IN ('Doctor', 'Administrator', 'Patient')
+            GROUP BY r.id, r.role_name 
+            ORDER BY staff_count DESC, r.role_name ASC
+        `) || [];
+
         res.render('staff/index', {
             title: 'Staff & HR Management',
             activeMenu: 'staff',
@@ -117,6 +127,7 @@ router.get('/', async (req, res) => {
             roles,
             attendanceList,
             leaveRequests,
+            roleDistribution,
             search,
             departmentId,
             status,
@@ -136,8 +147,8 @@ router.get('/', async (req, res) => {
 router.get('/add', authorize('Administrator'), async (req, res) => {
     try {
         const autoCode = await generateEmployeeCode();
-        const departments = await queryAll(`SELECT id, department_name FROM departments ORDER BY department_name ASC`) || [];
-        const roles = await queryAll(`SELECT id, role_name FROM roles ORDER BY role_name ASC`) || [];
+        const departments = await queryAll(`SELECT id, department_name FROM departments WHERE department_type IN ('Operational', 'Shared') ORDER BY department_name ASC`) || [];
+        const roles = await queryAll(`SELECT id, role_name FROM roles WHERE role_name NOT IN ('Doctor', 'Administrator', 'Patient') ORDER BY role_name ASC`) || [];
         const todayStr = new Date().toISOString().split('T')[0];
 
         res.render('staff/add', {
@@ -164,14 +175,17 @@ router.post('/add', authorize('Administrator'), [
     body('first_name').trim().notEmpty().withMessage('First Name is required'),
     body('last_name').trim().notEmpty().withMessage('Last Name is required'),
     body('email').isEmail().withMessage('Valid email address is required'),
+    body('phone').optional({ checkFalsy: true }).customSanitizer(val => val ? val.replace(/[\s-]/g, '') : val).matches(/^\+94\d{9}$/).withMessage('Phone must be strictly formatted as +94xxxxxxxxx'),
+    body('nic_number').optional({ checkFalsy: true }).matches(/^([0-9]{9}[xXvV]|[0-9]{12})$/).withMessage('NIC strictly requires standard 9 digits+V/X or 12 digits format'),
+    body('salary').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Monthly Salary must be a valid positive number'),
     body('role_id').notEmpty().withMessage('Role assignment is required'),
     body('designation').trim().notEmpty().withMessage('Designation is required')
 ], async (req, res) => {
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
-        const departments = await queryAll(`SELECT id, department_name FROM departments ORDER BY department_name ASC`) || [];
-        const roles = await queryAll(`SELECT id, role_name FROM roles ORDER BY role_name ASC`) || [];
+        const departments = await queryAll(`SELECT id, department_name FROM departments WHERE department_type IN ('Operational', 'Shared') ORDER BY department_name ASC`) || [];
+        const roles = await queryAll(`SELECT id, role_name FROM roles WHERE role_name NOT IN ('Doctor', 'Administrator', 'Patient') ORDER BY role_name ASC`) || [];
 
         return res.render('staff/add', {
             title: 'Register Staff Member',
@@ -221,8 +235,33 @@ router.post('/add', authorize('Administrator'), [
 
     } catch (err) {
         console.error('Save staff error:', err);
-        req.session.errorMessage = 'Failed to register staff member. Ensure code, email, and NIC are unique.';
-        res.redirect('/staff');
+        let errorMsg = 'Failed to register staff member. Please check input parameters.';
+        if (err.code === 'ER_DUP_ENTRY') {
+            if (err.message.includes('email')) {
+                errorMsg = 'This Email Address is already registered to an existing employee!';
+            } else if (err.message.includes('nic_number')) {
+                errorMsg = 'This NIC Number is already registered to an existing employee!';
+            } else if (err.message.includes('employee_code')) {
+                errorMsg = 'This Employee Code already exists. Please generate another one.';
+            } else {
+                errorMsg = 'A duplicate entry exists (Email, NIC, or Code).';
+            }
+        }
+
+        const departments = await queryAll(`SELECT id, department_name FROM departments WHERE department_type IN ('Operational', 'Shared') ORDER BY department_name ASC`) || [];
+        const roles = await queryAll(`SELECT id, role_name FROM roles WHERE role_name NOT IN ('Doctor', 'Administrator', 'Patient') ORDER BY role_name ASC`) || [];
+
+        return res.render('staff/add', {
+            title: 'Register Staff Member',
+            activeMenu: 'staff',
+            autoCode: req.body.employee_code || await generateEmployeeCode(),
+            departments,
+            roles,
+            todayStr: new Date().toISOString().split('T')[0],
+            errors: [{ msg: errorMsg }],
+            formData: req.body,
+            currentUser: req.session.user
+        });
     }
 });
 
@@ -285,8 +324,8 @@ router.get('/edit/:id', authorize('Administrator'), async (req, res) => {
             return res.redirect('/staff');
         }
 
-        const departments = await queryAll(`SELECT id, department_name FROM departments ORDER BY department_name ASC`) || [];
-        const roles = await queryAll(`SELECT id, role_name FROM roles ORDER BY role_name ASC`) || [];
+        const departments = await queryAll(`SELECT id, department_name FROM departments WHERE department_type IN ('Operational', 'Shared') ORDER BY department_name ASC`) || [];
+        const roles = await queryAll(`SELECT id, role_name FROM roles WHERE role_name NOT IN ('Doctor', 'Administrator', 'Patient') ORDER BY role_name ASC`) || [];
 
         res.render('staff/edit', {
             title: `Edit Staff - ${staff.first_name} ${staff.last_name}`,
@@ -311,6 +350,9 @@ router.post('/edit/:id', authorize('Administrator'), [
     body('first_name').trim().notEmpty().withMessage('First Name is required'),
     body('last_name').trim().notEmpty().withMessage('Last Name is required'),
     body('email').isEmail().withMessage('Valid email address is required'),
+    body('phone').optional({ checkFalsy: true }).customSanitizer(val => val ? val.replace(/[\s-]/g, '') : val).matches(/^\+94\d{9}$/).withMessage('Phone must be strictly formatted as +94xxxxxxxxx'),
+    body('nic_number').optional({ checkFalsy: true }).matches(/^([0-9]{9}[xXvV]|[0-9]{12})$/).withMessage('NIC strictly requires standard 9 digits+V/X or 12 digits format'),
+    body('salary').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Monthly Salary must be a valid positive number'),
     body('role_id').notEmpty().withMessage('Role assignment is required'),
     body('designation').trim().notEmpty().withMessage('Designation is required')
 ], async (req, res) => {
@@ -319,8 +361,8 @@ router.post('/edit/:id', authorize('Administrator'), [
 
     if (!errors.isEmpty()) {
         const staff = { ...req.body, id: staffId };
-        const departments = await queryAll(`SELECT id, department_name FROM departments ORDER BY department_name ASC`) || [];
-        const roles = await queryAll(`SELECT id, role_name FROM roles ORDER BY role_name ASC`) || [];
+        const departments = await queryAll(`SELECT id, department_name FROM departments WHERE department_type IN ('Operational', 'Shared') ORDER BY department_name ASC`) || [];
+        const roles = await queryAll(`SELECT id, role_name FROM roles WHERE role_name NOT IN ('Doctor', 'Administrator', 'Patient') ORDER BY role_name ASC`) || [];
 
         return res.render('staff/edit', {
             title: `Edit Staff - ${req.body.first_name || 'Staff'}`,
@@ -379,7 +421,7 @@ router.post('/toggle-status/:id', authorize('Administrator'), async (req, res) =
     const staffId = req.params.id;
 
     try {
-        const staff = await queryOne(`SELECT id, employee_code, first_name, last_name, is_active FROM staff WHERE id = ?`, [staffId]);
+        const staff = await queryOne(`SELECT id, employee_code, first_name, last_name, email, is_active FROM staff WHERE id = ?`, [staffId]);
         if (!staff) {
             req.session.errorMessage = 'Staff member not found.';
             return res.redirect('/staff');
@@ -388,11 +430,15 @@ router.post('/toggle-status/:id', authorize('Administrator'), async (req, res) =
         const newStatus = staff.is_active ? 0 : 1;
         const statusText = newStatus ? 'Activated' : 'Deactivated';
 
+        // 1. Update HR Staff Table
         await execute(`UPDATE staff SET is_active = ?, employment_status = ? WHERE id = ?`, [newStatus, newStatus ? 'Full-Time' : 'Terminated', staffId]);
 
-        await auditLog(req.session.user.id, `STAFF_${statusText.toUpperCase()}`, 'staff', staffId, `${statusText} staff member ${staff.first_name} ${staff.last_name} (${staff.employee_code})`, req.ip);
+        // 2. Cross-Module Trigger: Mirror status to System Users Table logically linked by Email
+        await execute(`UPDATE users SET is_active = ? WHERE email = ?`, [newStatus, staff.email]);
 
-        req.session.successMessage = `Staff member ${staff.first_name} ${staff.last_name} ${statusText.toLowerCase()}!`;
+        await auditLog(req.session.user.id, `STAFF_${statusText.toUpperCase()}`, 'staff', staffId, `${statusText} staff member ${staff.first_name} ${staff.last_name} (${staff.employee_code}) and synchronized system login access`, req.ip);
+
+        req.session.successMessage = `Staff member ${staff.first_name} ${staff.last_name} ${statusText.toLowerCase()}, and login access updated!`;
         res.redirect('/staff');
 
     } catch (err) {
