@@ -1,0 +1,103 @@
+<!-- IT Administrator Dashboard -->
+<div class="container-fluid px-0">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-1"><i class="bi bi-shield-lock-fill text-danger me-2"></i>IT Systems & Security</h3>
+            <p class="text-muted mb-0">System health, access management, and global audit logging</p>
+        </div>
+    </div>
+
+    <!-- System Metrics -->
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
+        <div>
+            <div class="card border-0 shadow-sm h-100 bg-white">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="rounded bg-primary-subtle text-primary p-3" style="width: 55px; height: 55px;">
+                        <i class="bi bi-people-fill fs-3"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Active System Users</div>
+                        <h3 class="fw-bold mb-0 text-dark"><%= stats.totalUsers %></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="card border-0 shadow-sm h-100 bg-white">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="rounded bg-success-subtle text-success p-3" style="width: 55px; height: 55px;">
+                        <i class="bi bi-broadcast fs-3"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Est. Active Sessions (24h)</div>
+                        <h3 class="fw-bold mb-0 text-success"><%= stats.activeSessions %></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="card border-0 shadow-sm h-100 bg-white">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="rounded bg-danger-subtle text-danger p-3" style="width: 55px; height: 55px;">
+                        <i class="bi bi-shield-exclamation fs-3"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-medium">Global Audit Events</div>
+                        <h3 class="fw-bold mb-0 text-danger"><%= stats.auditEvents %></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Master System Logs -->
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold"><i class="bi bi-journal-code me-2"></i>Global System Audit Trail</h5>
+            <span class="badge bg-danger">Top 50 Events</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Timestamp</th>
+                            <th>Action Mode</th>
+                            <th>User Target</th>
+                            <th>Module</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if(systemLogs && systemLogs.length > 0) { %>
+                            <% systemLogs.forEach(log => { %>
+                                <tr>
+                                    <td class="ps-4 text-muted small"><%= log.created_at %></td>
+                                    <td>
+                                        <% if(log.action.includes('AUTH') || log.action.includes('LOGIN')) { %>
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-key me-1"></i><%= log.action %></span>
+                                        <% } else if(log.action.includes('REFUND')) { %>
+                                            <span class="badge bg-danger"><i class="bi bi-cash me-1"></i><%= log.action %></span>
+                                        <% } else { %>
+                                            <span class="badge bg-secondary"><i class="bi bi-gear me-1"></i><%= log.action %></span>
+                                        <% } %>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark"><%= log.full_name %> (<%= log.username %>)</div>
+                                        <div class="small text-muted"><%= log.role_name || 'System' %></div>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border"><%= log.module %></span></td>
+                                    <td class="small text-secondary font-monospace"><%= log.details %></td>
+                                </tr>
+                            <% }); %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No system logs available.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

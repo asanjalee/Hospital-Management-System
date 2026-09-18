@@ -103,6 +103,10 @@ app.use('/staff', staffRoutes);
 const reportsRoutes = require('./routes/reports');
 app.use('/reports', reportsRoutes);
 
+// IT Administrator Dashboard
+const adminRoutes = require('./routes/admin');
+app.use('/admin', adminRoutes);
+
 // Root redirect
 app.get('/', (req, res) => {
     if (req.session && req.session.user) {
