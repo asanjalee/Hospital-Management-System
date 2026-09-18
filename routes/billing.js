@@ -316,9 +316,12 @@ router.post('/payment/:id', async (req, res) => {
             return res.redirect('/billing');
         }
 
-        const newPaidTotal = invoice.paid_amount + paymentAmount;
+        const currentPaid = parseFloat(invoice.paid_amount || 0);
+        const netAmount = parseFloat(invoice.net_amount || 0);
+        const newPaidTotal = currentPaid + paymentAmount;
+
         let newStatus = 'Unpaid';
-        if (newPaidTotal >= invoice.net_amount) {
+        if (newPaidTotal >= netAmount) {
             newStatus = 'Paid';
         } else if (newPaidTotal > 0) {
             newStatus = 'Partially Paid';

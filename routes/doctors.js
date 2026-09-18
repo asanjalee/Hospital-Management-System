@@ -35,7 +35,8 @@ router.get('/', async (req, res) => {
     let sql = `
         SELECT doc.*, u.full_name, u.username, u.email, u.phone as user_phone, u.is_active as user_active,
                d.department_name, d.head_of_dept,
-               (SELECT COUNT(*) FROM appointments a WHERE a.doctor_id = doc.id) as total_appointments
+               (SELECT COUNT(*) FROM appointments a WHERE a.doctor_id = doc.id) as total_appointments,
+               (SELECT COUNT(*) FROM appointments a WHERE a.doctor_id = doc.id AND a.status = 'Scheduled') as active_appts
         FROM doctors doc
         JOIN users u ON doc.user_id = u.id
         JOIN departments d ON doc.department_id = d.id
@@ -128,6 +129,15 @@ router.post('/add', [
         return true;
     })
 ], async (req, res) => {
+    // Smart normalize doctor's name format
+    if (req.body.full_name) {
+        let cleanName = req.body.full_name.trim().replace(/^dr\.?\s*/i, '');
+        if (cleanName.length > 0) {
+            cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        }
+        req.body.full_name = 'Dr. ' + cleanName;
+    }
+
     const errors = validationResult(req);
     const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
 
@@ -161,27 +171,54 @@ router.post('/add', [
             });
         }
 
-        // Check for room & schedule overlap
+        // Normalize room_number & Check for room & schedule overlap
+        let normalizedRoom = null;
         if (room_number && room_number.trim() !== '') {
-            const roomConflicts = await queryAll(
-                'SELECT u.full_name, d.availability_schedule FROM doctors d JOIN users u ON d.user_id = u.id WHERE d.room_number = ?',
-                [room_number.trim()]
+            // Standardize format: trim spaces, convert 'rm 204', 'room-204', 'Room204' -> 'Room 204', Title Case
+            normalizedRoom = room_number.trim().replace(/\s+/g, ' ').replace(/^r[o]*m[\s\-]*(\d+)/i, 'Room $1');
+            normalizedRoom = normalizedRoom.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+            // Validate realistic room numbers
+            const roomMatch = normalizedRoom.match(/Room\s+(\d+)/i);
+            if (roomMatch) {
+                const roomNum = parseInt(roomMatch[1], 10);
+                if (roomNum <= 0 || roomNum > 999) {
+                    return res.render('doctors/add', {
+                        title: 'Add New Doctor',
+                        activeMenu: 'doctors',
+                        departments,
+                        errors: [{ msg: `Room ${roomNum} is invalid. Building room numbers must be realistically bounded between 1 and 999.` }],
+                        formData: req.body,
+                        currentUser: req.session.user
+                    });
+                }
+            }
+
+            const allDoctors = await queryAll(
+                'SELECT u.full_name, d.room_number, d.availability_schedule FROM doctors d JOIN users u ON d.user_id = u.id WHERE d.room_number IS NOT NULL AND d.is_available = 1'
             );
 
-            for (const conflict of roomConflicts) {
-                if (conflict.availability_schedule && availability_schedule) {
-                    const sched1 = conflict.availability_schedule.toLowerCase();
-                    const sched2 = availability_schedule.toLowerCase();
-                    // Basic string overlap overlap logic for schedule arrays
-                    if (sched1 === sched2 || sched1.includes(sched2) || sched2.includes(sched1)) {
-                        return res.render('doctors/add', {
-                            title: 'Add New Doctor',
-                            activeMenu: 'doctors',
-                            departments,
-                            errors: [{ msg: `Room conflict: ${room_number.trim()} is already assigned to ${conflict.full_name} during an overlapping schedule (${conflict.availability_schedule}). Please assign a different room or schedule.` }],
-                            formData: req.body,
-                            currentUser: req.session.user
-                        });
+            for (const doc of allDoctors) {
+                if (!doc.room_number) continue;
+                
+                let dbRoom = doc.room_number.trim().replace(/\s+/g, ' ').replace(/^r[o]*m[\s\-]*(\d+)/i, 'Room $1');
+                dbRoom = dbRoom.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+                if (dbRoom === normalizedRoom) {
+                    if (doc.availability_schedule && availability_schedule) {
+                        const sched1 = doc.availability_schedule.toLowerCase();
+                        const sched2 = availability_schedule.trim().toLowerCase();
+                        
+                        if (sched1 === sched2 || sched1.includes(sched2) || sched2.includes(sched1)) {
+                            return res.render('doctors/add', {
+                                title: 'Add New Doctor',
+                                activeMenu: 'doctors',
+                                departments,
+                                errors: [{ msg: `Room conflict: ${normalizedRoom} is already assigned to ${doc.full_name} during an overlapping schedule (${doc.availability_schedule}). Please change the room or schedule.` }],
+                                formData: req.body,
+                                currentUser: req.session.user
+                            });
+                        }
                     }
                 }
             }
@@ -211,7 +248,7 @@ router.post('/add', [
             [
                 newUserId, department_id, specialization.trim(),
                 qualification ? qualification.trim() : null,
-                room_number ? room_number.trim() : null,
+                normalizedRoom,
                 consultation_fee ? parseFloat(consultation_fee) : 0.00,
                 availability_schedule ? availability_schedule.trim() : 'Mon - Fri (09:00 AM - 04:00 PM)'
             ]
@@ -248,8 +285,8 @@ router.get('/view/:id', async (req, res) => {
             FROM doctors doc
             JOIN users u ON doc.user_id = u.id
             JOIN departments d ON doc.department_id = d.id
-            WHERE doc.id = ? OR doc.user_id = ?
-        `, [docId, docId]);
+            WHERE doc.id = ?
+        `, [docId]);
 
         if (!doctor) {
             req.session.errorMessage = `Doctor record "#${docId}" not found.`;
@@ -343,6 +380,16 @@ router.post('/edit/:id', [
     })
 ], async (req, res) => {
     const docId = req.params.id;
+
+    // Smart normalize doctor's name format
+    if (req.body.full_name) {
+        let cleanName = req.body.full_name.trim().replace(/^dr\.?\s*/i, '');
+        if (cleanName.length > 0) {
+            cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        }
+        req.body.full_name = 'Dr. ' + cleanName;
+    }
+
     const errors = validationResult(req);
     const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
 
@@ -370,6 +417,62 @@ router.post('/edit/:id', [
             return res.redirect('/doctors');
         }
 
+        // Normalize room_number & Check for room & schedule overlap
+        let normalizedRoom = null;
+        if (room_number && room_number.trim() !== '') {
+            // Standardize format: trim spaces, convert 'rm 204', 'room-204', 'Room204' -> 'Room 204', Title Case
+            normalizedRoom = room_number.trim().replace(/\s+/g, ' ').replace(/^r[o]*m[\s\-]*(\d+)/i, 'Room $1');
+            normalizedRoom = normalizedRoom.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+            // Validate realistic room numbers
+            const roomMatch = normalizedRoom.match(/Room\s+(\d+)/i);
+            if (roomMatch) {
+                const roomNum = parseInt(roomMatch[1], 10);
+                if (roomNum <= 0 || roomNum > 999) {
+                    const doctor = { ...req.body, id: docId };
+                    return res.render('doctors/edit', {
+                        title: 'Edit Doctor',
+                        activeMenu: 'doctors',
+                        doctor,
+                        departments,
+                        errors: [{ msg: `Room ${roomNum} is invalid. Building room numbers must be realistically bounded between 1 and 999.` }],
+                        currentUser: req.session.user
+                    });
+                }
+            }
+
+            const allDoctors = await queryAll(
+                'SELECT u.full_name, d.room_number, d.availability_schedule FROM doctors d JOIN users u ON d.user_id = u.id WHERE d.room_number IS NOT NULL AND d.is_available = 1 AND d.id != ?',
+                [docId]
+            );
+
+            for (const doc of allDoctors) {
+                if (!doc.room_number) continue;
+                
+                let dbRoom = doc.room_number.trim().replace(/\s+/g, ' ').replace(/^r[o]*m[\s\-]*(\d+)/i, 'Room $1');
+                dbRoom = dbRoom.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+                if (dbRoom === normalizedRoom) {
+                    if (doc.availability_schedule && availability_schedule) {
+                        const sched1 = doc.availability_schedule.toLowerCase();
+                        const sched2 = availability_schedule.trim().toLowerCase();
+                        
+                        if (sched1 === sched2 || sched1.includes(sched2) || sched2.includes(sched1)) {
+                            const doctor = { ...req.body, id: docId };
+                            return res.render('doctors/edit', {
+                                title: 'Edit Doctor',
+                                activeMenu: 'doctors',
+                                doctor,
+                                departments,
+                                errors: [{ msg: `Room conflict: ${normalizedRoom} is already assigned to ${doc.full_name} during an overlapping schedule (${doc.availability_schedule}). Please change the room or schedule.` }],
+                                currentUser: req.session.user
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         // Update User info
         await execute(
             `UPDATE users SET full_name = ?, email = ?, phone = ?, department_id = ?, updated_at = ? WHERE id = ?`,
@@ -385,7 +488,7 @@ router.post('/edit/:id', [
             [
                 department_id, specialization.trim(),
                 qualification ? qualification.trim() : null,
-                room_number ? room_number.trim() : null,
+                normalizedRoom,
                 consultation_fee ? parseFloat(consultation_fee) : 0.00,
                 availability_schedule ? availability_schedule.trim() : null,
                 existingDoc.id
@@ -431,6 +534,43 @@ router.post('/toggle-availability/:id', async (req, res) => {
 
     } catch (err) {
         console.error('Toggle doctor availability error:', err);
+        res.redirect('/doctors');
+    }
+});
+
+// -------------------------------------------------
+// POST /doctors/delete/:id — Hard Delete Doctor
+// -------------------------------------------------
+router.post('/delete/:id', async (req, res) => {
+    const docId = req.params.id;
+
+    try {
+        const doc = await queryOne('SELECT * FROM doctors WHERE id = ?', [docId]);
+        if (!doc) {
+            req.session.errorMessage = 'Doctor not found.';
+            return res.redirect('/doctors');
+        }
+
+        const apptCount = await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE doctor_id = ?', [docId]);
+        if (apptCount.cnt > 0) {
+            req.session.errorMessage = 'Cannot permanently delete a doctor who has historical or active appointments. Please use the availability toggle instead.';
+            return res.redirect('/doctors');
+        }
+
+        const userId = doc.user_id;
+
+        // Hard Delete (Enforces cascade removal of doctor safely since they have 0 appointments)
+        await execute('DELETE FROM doctors WHERE id = ?', [docId]);
+        await execute('DELETE FROM users WHERE id = ?', [userId]);
+
+        await auditLog(req.session.user.id, 'DOCTOR_DELETED', 'doctors', docId, `Permanently deleted dummy doctor record (User ID: ${userId})`, req.ip);
+
+        req.session.successMessage = `Doctor record was permanently deleted from the database.`;
+        res.redirect('/doctors');
+
+    } catch (err) {
+        console.error('Delete doctor error:', err);
+        req.session.errorMessage = 'An error occurred while deleting the doctor.';
         res.redirect('/doctors');
     }
 });

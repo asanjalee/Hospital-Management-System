@@ -7,7 +7,7 @@
             <a href="/emr/view/<%= record.id %>" class="text-decoration-none text-muted small fw-medium mb-1 d-inline-block">
                 <i class="bi bi-arrow-left me-1"></i> Back to Medical Record Details
             </a>
-            <h3 class="fw-bold mb-0 text-dark">Edit Medical Record #EMR-<%= record.id.toString().padStart(4, '0') %></h3>
+            <h3 class="fw-bold mb-0 text-dark">Edit Medical Record EMR-<%= record.id.toString().padStart(4, '0') %></h3>
         </div>
     </div>
 
@@ -38,8 +38,9 @@
                             <span class="text-primary small fw-semibold"><%= record.patient_uid %></span>
                         </div>
                         <div class="mb-3">
-                            <label class="text-muted small">Visit Date:</label>
-                            <div class="fw-semibold text-dark"><%= record.visit_date %></div>
+                            <label for="visit_date" class="form-label text-muted small fw-semibold mb-1">Visit Date: <span class="text-danger">*</span></label>
+                            <input type="date" id="visit_date" name="visit_date" class="form-control font-monospace" value="<%= record.visit_date %>" max="<%= todayStr %>" required>
+                            <div class="form-text" style="font-size:0.75rem;">Modify historical records up to the current date.</div>
                         </div>
                     </div>
                 </div>
@@ -55,7 +56,7 @@
                         <div class="row g-3">
                             <div class="col-6">
                                 <label for="vitals_bp" class="form-label fw-semibold text-dark">Blood Pressure</label>
-                                <input type="text" id="vitals_bp" name="vitals_bp" class="form-control" value="<%= record.vitals_bp || '' %>">
+                                <input type="text" id="vitals_bp" name="vitals_bp" class="form-control" value="<%= record.vitals_bp || '' %>" pattern="^\\d{2,3}\\/\\d{2,3}$" title="Must be in format xxx/xx (e.g. 120/80)">
                             </div>
                             <div class="col-6">
                                 <label for="vitals_pulse" class="form-label fw-semibold text-dark">Pulse Rate (BPM)</label>
@@ -67,7 +68,7 @@
                             </div>
                             <div class="col-6">
                                 <label for="vitals_weight" class="form-label fw-semibold text-dark">Weight (kg)</label>
-                                <input type="number" step="0.1" id="vitals_weight" name="vitals_weight" class="form-control" value="<%= record.vitals_weight || '' %>">
+                                <input type="number" step="0.1" min="0" id="vitals_weight" name="vitals_weight" class="form-control" value="<%= record.vitals_weight || '' %>">
                             </div>
                         </div>
                     </div>

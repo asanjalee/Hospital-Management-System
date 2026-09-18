@@ -72,6 +72,18 @@
                     <span class="text-muted"><i class="bi bi-cash-stack me-2"></i> Salary:</span>
                     <span class="fw-bold text-success">LKR <%= Number(staff.salary || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) %></span>
                 </li>
+                <li class="d-flex justify-content-between">
+                    <span class="text-muted"><i class="bi bi-shield-lock me-2"></i> System Access:</span>
+                    <% if (staff.system_user) { %>
+                        <% if (staff.system_user.is_active) { %>
+                            <span class="fw-bold text-primary">Active <small class="text-muted fw-normal ms-1">(<%= staff.system_user.username || staff.system_user.email %>)</small></span>
+                        <% } else { %>
+                            <span class="fw-bold text-danger">Suspended <small class="text-muted fw-normal ms-1">(<%= staff.system_user.username || staff.system_user.email %>)</small></span>
+                        <% } %>
+                    <% } else { %>
+                        <span class="fw-semibold text-secondary">Not Provisioned</span>
+                    <% } %>
+                </li>
             </ul>
         </div>
     </div>

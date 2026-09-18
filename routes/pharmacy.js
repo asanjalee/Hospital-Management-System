@@ -37,6 +37,8 @@ router.get('/', async (req, res) => {
     const search = req.query.search ? req.query.search.trim() : '';
     const category = req.query.category || '';
     const filter = req.query.filter || ''; // 'low_stock' | 'expiring'
+    const sort = (req.query.sort || req.body?.sort || 'latest').toString().trim();
+    const sortLower = sort.toLowerCase();
 
     let sql = `SELECT * FROM medicines WHERE is_active = 1`;
     const params = [];
@@ -58,7 +60,17 @@ router.get('/', async (req, res) => {
         sql += ` AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)`;
     }
 
-    sql += ` ORDER BY name ASC`;
+    if (sortLower === 'name_asc' || sortLower === 'alpha_asc' || sortLower === 'a_z' || sortLower === 'az' || sortLower === 'name') {
+        sql += ` ORDER BY LOWER(name) ASC, id DESC`;
+    } else if (sortLower === 'name_desc' || sortLower === 'alpha_desc' || sortLower === 'z_a' || sortLower === 'za') {
+        sql += ` ORDER BY LOWER(name) DESC, id DESC`;
+    } else if (sortLower === 'stock_asc' || sortLower === 'stock_low' || sortLower === 'stock') {
+        sql += ` ORDER BY stock_quantity ASC, id DESC`;
+    } else if (sortLower === 'stock_desc' || sortLower === 'stock_high') {
+        sql += ` ORDER BY stock_quantity DESC, id DESC`;
+    } else {
+        sql += ` ORDER BY id DESC`;
+    }
 
     try {
         const medicines = await queryAll(sql, params) || [];
@@ -80,6 +92,7 @@ router.get('/', async (req, res) => {
             search,
             category,
             filter,
+            sort,
             stats,
             currentUser: req.session.user
         });
@@ -250,6 +263,7 @@ router.post('/edit/:id', [
 // -------------------------------------------------
 router.get('/dispense', async (req, res) => {
     const prePatientId = req.query.patient_id || '';
+    const preMedicineId = req.query.medicine_id || '';
 
     try {
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
@@ -262,7 +276,7 @@ router.get('/dispense', async (req, res) => {
             medicines,
             prePatientId,
             errors: [],
-            formData: { patient_id: prePatientId },
+            formData: { patient_id: prePatientId, medicine_id: preMedicineId },
             currentUser: req.session.user
         });
 
@@ -316,11 +330,61 @@ router.post('/dispense', [
         const newQty = med.stock_quantity - qtyToDispense;
         await execute(`UPDATE medicines SET stock_quantity = ?, updated_at = ? WHERE id = ?`, [newQty, getSLTimestamp(), medicine_id]);
 
-        const totalCost = (med.unit_price * qtyToDispense).toFixed(2);
+        const totalCost = (med.unit_price * qtyToDispense);
+        
+        // Auto-Billing Integration Block
+        // Objective: Safely create or append to an existing independent 'Pharmacy Bill' invoice
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        let billingRecord = await queryOne(`
+            SELECT * FROM billing 
+            WHERE patient_id = ? 
+              AND payment_status = 'Unpaid' 
+              AND appointment_id IS NULL 
+              AND invoice_date = ? 
+              AND notes = 'Pharmacy Bill'
+        `, [patient_id, todayStr]);
 
-        await auditLog(req.session.user.id, 'MEDICINE_DISPENSED', 'medicines', medicine_id, `Dispensed ${qtyToDispense} units of ${med.name} to patient ID #${patient_id} (Total: LKR ${totalCost})`, req.ip);
+        let billingId;
 
-        req.session.successMessage = `Successfully dispensed ${qtyToDispense} x ${med.name} (Total: LKR ${totalCost}). Inventory stock remaining: ${newQty}.`;
+        if (billingRecord) {
+            billingId = billingRecord.id;
+        } else {
+            const year = new Date().getFullYear();
+            const countResult = await queryOne('SELECT COUNT(*) as total FROM billing');
+            const nextNum = (countResult ? countResult.total + 1 : 1).toString().padStart(4, '0');
+            const invNum = `INV-${year}-${nextNum}`;
+
+            const insertResult = await execute(`
+                INSERT INTO billing (
+                    invoice_number, patient_id, appointment_id, total_amount, discount_amount,
+                    net_amount, paid_amount, payment_status, payment_method, invoice_date, notes, created_by, created_at
+                ) VALUES (?, ?, NULL, 0.00, 0.00, 0.00, 0.00, 'Unpaid', NULL, ?, 'Pharmacy Bill', ?, ?)
+            `, [invNum, patient_id, todayStr, req.session.user.id, getSLTimestamp()]);
+
+            billingId = insertResult.lastInsertRowid;
+        }
+
+        // Insert Pharmacy Line Item mapping to the active Pharmacy Invoice
+        await execute(`
+            INSERT INTO billing_items (billing_id, item_type, description, quantity, unit_price, amount, created_at)
+            VALUES (?, 'Pharmacy', ?, ?, ?, ?, ?)
+        `, [billingId, med.name, qtyToDispense, med.unit_price, totalCost, getSLTimestamp()]);
+
+        // Force strong dynamic recalculation from billing_items after injection
+        const sumResult = await queryOne(`SELECT SUM(amount) AS total FROM billing_items WHERE billing_id = ?`, [billingId]);
+        const recalculatedTotal = parseFloat(sumResult?.total || 0);
+
+        await execute(`
+            UPDATE billing 
+            SET total_amount = ?, 
+                net_amount = (? - IFNULL(discount_amount, 0)) 
+            WHERE id = ?
+        `, [recalculatedTotal, recalculatedTotal, billingId]);
+
+        await auditLog(req.session.user.id, 'MEDICINE_DISPENSED', 'medicines', medicine_id, `Dispensed ${qtyToDispense} units of ${med.name} to patient ID #${patient_id} (Total: LKR ${totalCost.toFixed(2)}) & linked to Pharmacy Bill #${billingId}`, req.ip);
+
+        req.session.successMessage = `Successfully dispensed ${qtyToDispense} x ${med.name} (Total: LKR ${totalCost.toFixed(2)}). Dispensation appended to Pharmacy Bill!`;
         res.redirect('/pharmacy');
 
     } catch (err) {

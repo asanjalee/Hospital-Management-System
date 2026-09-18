@@ -20,7 +20,7 @@
 
 <div class="card border-0 shadow-sm rounded-3">
     <div class="card-body p-4">
-        <form action="/staff/edit/<%= staff.id %>" method="POST">
+        <form action="/staff/edit/<%= staff.id %>" method="POST" novalidate>
             <!-- Employee Code & Basic Info -->
             <h6 class="fw-bold text-primary mb-3 text-uppercase small tracking-wide">1. Basic Employee Information</h6>
             <div class="row g-3 mb-4">
@@ -46,11 +46,13 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">Phone Number</label>
-                    <input type="tel" name="phone" class="form-control" value="<%= staff.phone || '' %>">
+                    <input type="tel" name="phone" class="form-control" value="<%= staff.phone || '' %>" placeholder="+94771234567" pattern="^\+94\d{9}$">
+                    <small class="text-muted d-block mt-1">Format: +94XXXXXXXXX (e.g. +94771234567)</small>
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">NIC Number</label>
-                    <input type="text" name="nic_number" class="form-control" value="<%= staff.nic_number || '' %>">
+                    <input type="text" name="nic_number" class="form-control" value="<%= staff.nic_number || '' %>" placeholder="e.g. 851230456V or 198512300456" pattern="^([0-9]{9}[xXvV]|[0-9]{12})$">
+                    <small class="text-muted d-block mt-1">Format: 9-digits+V/X (851230456V) or 12-digits</small>
                 </div>
             </div>
 
@@ -90,7 +92,7 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">Monthly Salary (LKR)</label>
-                    <input type="number" step="0.01" name="salary" class="form-control" value="<%= staff.salary %>">
+                    <input type="number" step="0.01" min="0" name="salary" class="form-control" value="<%= staff.salary %>">
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">Employment Status</label>

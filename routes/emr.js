@@ -103,17 +103,38 @@ router.get('/add', async (req, res) => {
     try {
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name, gender, date_of_birth FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC`) || [];
-        const appointments = await queryAll(`
-            SELECT a.id, a.appointment_number, a.appointment_date, p.patient_uid, p.first_name, p.last_name, u.full_name as doctor_name
+        let appointments = await queryAll(`
+            SELECT a.id, a.appointment_number, a.appointment_date, p.id as patient_id, p.patient_uid, p.first_name, p.last_name, u.full_name as doctor_name, doc.availability_schedule
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
             JOIN doctors doc ON a.doctor_id = doc.id
             JOIN users u ON doc.user_id = u.id
-            WHERE a.status = 'Scheduled'
+            WHERE a.status IN ('Scheduled', 'Completed') AND a.appointment_date <= CURDATE()
             ORDER BY a.appointment_date DESC
         `) || [];
 
-        const todayStr = new Date().toISOString().split('T')[0];
+        const slTimestamp = getSLTimestamp();
+        const todayStr = slTimestamp.split(' ')[0];
+        const currTimeStr = slTimestamp.split(' ')[1];
+        const currH = parseInt(currTimeStr.split(':')[0], 10);
+        const currM = parseInt(currTimeStr.split(':')[1], 10);
+
+        appointments = appointments.filter(apt => {
+            if (apt.appointment_date < todayStr) return true;
+            if (apt.appointment_date === todayStr && apt.availability_schedule) {
+                const shiftMatch = apt.availability_schedule.match(/\(\s*([0-9]{1,2}):([0-9]{2})\s*(AM|PM)/i);
+                if (shiftMatch) {
+                    let shiftH = parseInt(shiftMatch[1], 10);
+                    const shiftM = parseInt(shiftMatch[2], 10);
+                    const shiftAmPm = shiftMatch[3].toUpperCase();
+                    if (shiftAmPm === 'PM' && shiftH < 12) shiftH += 12;
+                    if (shiftAmPm === 'AM' && shiftH === 12) shiftH = 0;
+                    if (currH < shiftH || (currH === shiftH && currM < shiftM)) return false;
+                }
+            }
+            return true;
+        });
+
 
         res.render('emr/add', {
             title: 'Add Medical Record',
@@ -144,9 +165,14 @@ router.get('/add', async (req, res) => {
 // -------------------------------------------------
 router.post('/add', [
     body('patient_id').notEmpty().withMessage('Patient selection is required'),
-    body('visit_date').notEmpty().isISO8601().withMessage('Valid visit date is required'),
+    body('visit_date').notEmpty().isISO8601().withMessage('Valid visit date is required')
+        .custom(value => {
+            if (new Date(value) > new Date()) throw new Error('Visit date cannot be in the future');
+            return true;
+        }),
     body('diagnosis').trim().notEmpty().withMessage('Medical diagnosis is required'),
     body('symptoms').trim().notEmpty().withMessage('Symptoms description is required'),
+    body('vitals_bp').optional({ checkFalsy: true }).matches(/^\d{2,3}\/\d{2,3}$/).withMessage('Blood pressure must be strictly numeric format (e.g., 120/80)'),
     body('vitals_pulse').optional({ checkFalsy: true }).isInt({ min: 30, max: 250 }).withMessage('Pulse rate must be a number between 30 and 250 BPM'),
     body('vitals_temp').optional({ checkFalsy: true }).isFloat({ min: 90, max: 110 }).withMessage('Body temperature must be between 90 and 110 °F'),
     body('vitals_weight').optional({ checkFalsy: true }).isFloat({ min: 1, max: 500 }).withMessage('Weight must be a positive number (kg)')
@@ -156,7 +182,29 @@ router.post('/add', [
     if (!errors.isEmpty()) {
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id WHERE doc.is_available = 1 ORDER BY u.full_name ASC`) || [];
-        const appointments = await queryAll(`SELECT a.id, a.appointment_number, a.appointment_date, p.patient_uid, p.first_name, p.last_name FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.status = 'Scheduled' ORDER BY a.appointment_date DESC`) || [];
+        let appointments = await queryAll(`SELECT a.id, a.appointment_number, a.appointment_date, p.id as patient_id, p.patient_uid, p.first_name, p.last_name, doc.availability_schedule FROM appointments a JOIN patients p ON a.patient_id = p.id JOIN doctors doc ON a.doctor_id = doc.id WHERE a.status IN ('Scheduled', 'Completed') AND a.appointment_date <= CURDATE() ORDER BY a.appointment_date DESC`) || [];
+
+        const slTimestamp = getSLTimestamp();
+        const todayStr = slTimestamp.split(' ')[0];
+        const currTimeStr = slTimestamp.split(' ')[1];
+        const currH = parseInt(currTimeStr.split(':')[0], 10);
+        const currM = parseInt(currTimeStr.split(':')[1], 10);
+
+        appointments = appointments.filter(apt => {
+            if (apt.appointment_date < todayStr) return true;
+            if (apt.appointment_date === todayStr && apt.availability_schedule) {
+                const shiftMatch = apt.availability_schedule.match(/\(\s*([0-9]{1,2}):([0-9]{2})\s*(AM|PM)/i);
+                if (shiftMatch) {
+                    let shiftH = parseInt(shiftMatch[1], 10);
+                    const shiftM = parseInt(shiftMatch[2], 10);
+                    const shiftAmPm = shiftMatch[3].toUpperCase();
+                    if (shiftAmPm === 'PM' && shiftH < 12) shiftH += 12;
+                    if (shiftAmPm === 'AM' && shiftH === 12) shiftH = 0;
+                    if (currH < shiftH || (currH === shiftH && currM < shiftM)) return false;
+                }
+            }
+            return true;
+        });
 
         return res.render('emr/add', {
             title: 'Add Medical Record',
@@ -240,12 +288,12 @@ router.get('/view/:id', async (req, res) => {
         `, [recId]);
 
         if (!record) {
-            req.session.errorMessage = `Medical record #${recId} not found.`;
+            req.session.errorMessage = `Medical record EMR-${String(recId).padStart(4, '0')} not found.`;
             return res.redirect('/emr');
         }
 
         res.render('emr/view', {
-            title: `Medical Record #${record.id}`,
+            title: `Medical Record EMR-${String(record.id).padStart(4, '0')}`,
             activeMenu: 'emr',
             record,
             currentUser: req.session.user
@@ -274,11 +322,12 @@ router.get('/edit/:id', async (req, res) => {
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id ORDER BY u.full_name ASC`) || [];
 
         res.render('emr/edit', {
-            title: `Edit Medical Record #${record.id}`,
+            title: `Edit Medical Record EMR-${String(record.id).padStart(4, '0')}`,
             activeMenu: 'emr',
             record,
             patients,
             doctors,
+            todayStr: new Date().toISOString().split('T')[0],
             errors: [],
             currentUser: req.session.user
         });
@@ -293,10 +342,17 @@ router.get('/edit/:id', async (req, res) => {
 // POST /emr/edit/:id — Update Medical Record
 // -------------------------------------------------
 router.post('/edit/:id', [
+    body('visit_date').notEmpty().isISO8601().withMessage('Valid visit date is required')
+        .custom(value => {
+            if (new Date(value) > new Date()) throw new Error('Visit date cannot be in the future. Please correct this historical date.');
+            return true;
+        }),
     body('diagnosis').trim().notEmpty().withMessage('Medical diagnosis is required'),
     body('symptoms').trim().notEmpty().withMessage('Symptoms description is required'),
+    body('vitals_bp').optional({ checkFalsy: true }).matches(/^\d{2,3}\/\d{2,3}$/).withMessage('Blood pressure must be strictly numeric format (e.g., 120/80)'),
     body('vitals_pulse').optional({ checkFalsy: true }).isInt({ min: 30, max: 250 }).withMessage('Pulse rate must be between 30 and 250 BPM'),
-    body('vitals_temp').optional({ checkFalsy: true }).isFloat({ min: 90, max: 110 }).withMessage('Body temperature must be between 90 and 110 °F')
+    body('vitals_temp').optional({ checkFalsy: true }).isFloat({ min: 90, max: 110 }).withMessage('Body temperature must be between 90 and 110 °F'),
+    body('vitals_weight').optional({ checkFalsy: true }).isFloat({ min: 1, max: 500 }).withMessage('Weight must be a positive number (kg)')
 ], async (req, res) => {
     const recId = req.params.id;
     const errors = validationResult(req);
@@ -306,28 +362,30 @@ router.post('/edit/:id', [
         const patients = await queryAll(`SELECT id, patient_uid, first_name, last_name FROM patients WHERE is_active = 1 ORDER BY first_name ASC`) || [];
         const doctors = await queryAll(`SELECT doc.id, u.full_name, doc.specialization FROM doctors doc JOIN users u ON doc.user_id = u.id ORDER BY u.full_name ASC`) || [];
         return res.render('emr/edit', {
-            title: `Edit Medical Record #${recId}`,
+            title: `Edit Medical Record EMR-${String(recId).padStart(4, '0')}`,
             activeMenu: 'emr',
             record,
             patients,
             doctors,
+            todayStr: new Date().toISOString().split('T')[0],
             errors: errors.array(),
             currentUser: req.session.user
         });
     }
 
     const {
-        diagnosis, symptoms, treatment_plan, prescription, doctor_notes,
+        visit_date, diagnosis, symptoms, treatment_plan, prescription, doctor_notes,
         vitals_bp, vitals_pulse, vitals_temp, vitals_weight
     } = req.body;
 
     try {
         await execute(`
             UPDATE medical_history SET
-                diagnosis = ?, symptoms = ?, treatment_plan = ?, prescription = ?, doctor_notes = ?,
+                visit_date = ?, diagnosis = ?, symptoms = ?, treatment_plan = ?, prescription = ?, doctor_notes = ?,
                 vitals_bp = ?, vitals_pulse = ?, vitals_temp = ?, vitals_weight = ?
             WHERE id = ?
         `, [
+            visit_date,
             diagnosis.trim(),
             symptoms.trim(),
             treatment_plan ? treatment_plan.trim() : null,
@@ -340,9 +398,9 @@ router.post('/edit/:id', [
             recId
         ]);
 
-        await auditLog(req.session.user.id, 'EMR_RECORD_UPDATED', 'medical_history', recId, `Updated EMR record #${recId}`, req.ip);
+        await auditLog(req.session.user.id, 'EMR_RECORD_UPDATED', 'medical_history', recId, `Updated EMR record EMR-${String(recId).padStart(4, '0')}`, req.ip);
 
-        req.session.successMessage = `Medical record #${recId} updated successfully.`;
+        req.session.successMessage = `Medical record EMR-${String(recId).padStart(4, '0')} updated successfully.`;
         res.redirect(`/emr/view/${recId}`);
 
     } catch (err) {
