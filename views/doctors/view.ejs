@@ -17,9 +17,15 @@
 
     <!-- Header Navigation -->
     <div class="mb-3">
-        <a href="/doctors" class="text-decoration-none text-muted small fw-medium">
-            <i class="bi bi-arrow-left me-1"></i> Back to Doctor Directory
-        </a>
+        <% if (currentUser.role_name === 'Administrator' || currentUser.role_name === 'Receptionist') { %>
+            <a href="/doctors" class="text-decoration-none text-muted small fw-medium">
+                <i class="bi bi-arrow-left me-1"></i> Back to Doctor Directory
+            </a>
+        <% } else { %>
+            <a href="/dashboard" class="text-decoration-none text-muted small fw-medium">
+                <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+            </a>
+        <% } %>
     </div>
 
     <!-- Doctor Profile Card Header -->
@@ -67,10 +73,12 @@
                         <i class="bi bi-calendar-plus-fill fs-5"></i>
                         <span>Book Appointment</span>
                     </a>
+                    <% if (currentUser.role_name === 'Administrator') { %>
                     <a href="/doctors/edit/<%= doctor.id %>" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1 rounded-3 px-3 py-2 fw-medium">
                         <i class="bi bi-pencil-square"></i>
                         <span>Edit Profile</span>
                     </a>
+                    <% } %>
                 </div>
             </div>
         </div>

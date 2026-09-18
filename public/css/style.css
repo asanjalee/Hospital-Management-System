@@ -1074,3 +1074,39 @@ a {
     margin-top: 80px;
 }
 
+/* ====================================================
+   GLOBAL PRINT RULES (REPORTS & EXPORTS)
+   ==================================================== */
+@media print {
+    /* Hide overarching ui architectures */
+    .sidebar, .top-navbar, .print-hide, .btn, .d-print-none {
+        display: none !important;
+    }
+
+    /* Reset Body & Main flow structures */
+    body, html {
+        background-color: #ffffff !important;
+        margin: 0;
+        padding: 0;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    /* Clear shadows and artifact boundaries */
+    .card, .report-container {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Ensure structural color integrity is retained during pdf compilation */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+}
