@@ -132,6 +132,11 @@
                                 <small class="text-muted"><%= currentUser.role_name %></small>
                             </div>
                             <div class="dropdown-divider"></div>
+                            <% if (currentUser.role_name !== 'Administrator') { %>
+                            <a class="dropdown-item" href="/auth/profile">
+                                <i class="bi bi-person me-2"></i> My Profile
+                            </a>
+                            <% } %>
                             <a class="dropdown-item" href="/auth/change-password">
                                 <i class="bi bi-key me-2"></i> Change Password
                             </a>

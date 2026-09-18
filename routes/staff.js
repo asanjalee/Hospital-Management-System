@@ -415,6 +415,8 @@ router.post('/edit/:id', authorize('Administrator'), [
     } = req.body;
 
     try {
+        const currentStaff = await queryOne(`SELECT email FROM staff WHERE id = ?`, [staffId]);
+
         await execute(`
             UPDATE staff SET
                 first_name = ?, last_name = ?, email = ?, phone = ?, nic_number = ?,
@@ -436,7 +438,23 @@ router.post('/edit/:id', authorize('Administrator'), [
             staffId
         ]);
 
-        await auditLog(req.session.user.id, 'STAFF_UPDATED', 'staff', staffId, `Updated profile for staff member ${first_name} ${last_name}`, req.ip);
+        if (currentStaff) {
+            // Synchronize cascading structural updates to the natively joined Users IAM table
+            await execute(`
+                UPDATE users SET 
+                    email = ?, full_name = ?, phone = ?, role_id = ?, department_id = ? 
+                WHERE email = ?
+            `, [
+                email.trim().toLowerCase(),
+                `${first_name.trim()} ${last_name.trim()}`,
+                phone ? phone.trim() : null,
+                role_id,
+                department_id ? department_id : null,
+                currentStaff.email
+            ]);
+        }
+
+        await auditLog(req.session.user.id, 'STAFF_UPDATED', 'staff', staffId, `Updated profile for staff member ${first_name} ${last_name} and synced mapped credentials`, req.ip);
 
         req.session.successMessage = `Staff member ${first_name} ${last_name} updated successfully!`;
         res.redirect(`/staff/view/${staffId}`);

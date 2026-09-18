@@ -81,21 +81,13 @@ a {
     align-items: center;
     justify-content: center;
     position: relative;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    background: linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.65)), url('/images/login_bg.png') no-repeat center center;
+    background-size: cover;
     overflow: hidden;
 }
 
 .login-background {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-}
-
-.bg-shape {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.3;
+    display: none; /* Removed in favor of direct background on page container */
 }
 
 .shape-1 {
@@ -1074,3 +1066,39 @@ a {
     margin-top: 80px;
 }
 
+/* ====================================================
+   GLOBAL PRINT RULES (REPORTS & EXPORTS)
+   ==================================================== */
+@media print {
+    /* Hide overarching ui architectures */
+    .sidebar, .top-navbar, .print-hide, .btn, .d-print-none {
+        display: none !important;
+    }
+
+    /* Reset Body & Main flow structures */
+    body, html {
+        background-color: #ffffff !important;
+        margin: 0;
+        padding: 0;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    /* Clear shadows and artifact boundaries */
+    .card, .report-container {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Ensure structural color integrity is retained during pdf compilation */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+}

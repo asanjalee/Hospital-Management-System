@@ -32,41 +32,41 @@
     </div>
 
     <!-- Metric KPI Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-sm-6 col-xl-4">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; align-items: stretch; margin-bottom: 1.5rem;">
+        <div>
             <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
                 <div class="card-body p-3 d-flex align-items-center gap-3">
-                    <div class="rounded-3 bg-primary bg-opacity-10 text-primary p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                    <div class="rounded-3 bg-primary bg-opacity-10 text-primary p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px; flex-shrink: 0;">
                         <i class="bi bi-journal-medical fs-3"></i>
                     </div>
-                    <div>
-                        <div class="text-muted small fw-medium">Total EMR Entries</div>
+                    <div style="min-width: 0;">
+                        <div class="text-muted small fw-medium text-truncate">Total EMR Entries</div>
                         <h4 class="fw-bold mb-0 text-dark"><%= stats.total %></h4>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
+        <div>
             <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
                 <div class="card-body p-3 d-flex align-items-center gap-3">
-                    <div class="rounded-3 bg-success-subtle text-success p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                    <div class="rounded-3 bg-success-subtle text-success p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px; flex-shrink: 0;">
                         <i class="bi bi-people-fill fs-3"></i>
                     </div>
-                    <div>
-                        <div class="text-muted small fw-medium">Patients Diagnosed</div>
+                    <div style="min-width: 0;">
+                        <div class="text-muted small fw-medium text-truncate">Patients Diagnosed</div>
                         <h4 class="fw-bold mb-0 text-success"><%= stats.uniquePatients %></h4>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-12 col-xl-4">
+        <div>
             <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
                 <div class="card-body p-3 d-flex align-items-center gap-3">
-                    <div class="rounded-3 bg-info bg-opacity-10 text-info p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                    <div class="rounded-3 bg-info bg-opacity-10 text-info p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px; flex-shrink: 0;">
                         <i class="bi bi-clock-history fs-3"></i>
                     </div>
-                    <div>
-                        <div class="text-muted small fw-medium">Recent 30-Day Records</div>
+                    <div style="min-width: 0;">
+                        <div class="text-muted small fw-medium text-truncate">Recent 30-Day Records</div>
                         <h4 class="fw-bold mb-0 text-dark"><%= stats.recentVisits %></h4>
                     </div>
                 </div>

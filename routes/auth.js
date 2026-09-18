@@ -132,6 +132,28 @@ router.get('/logout', isAuthenticated, async (req, res) => {
 });
 
 // -------------------------------------------------
+// GET /auth/profile — Smart redirect to user's personal profile (Doctor or Staff)
+// -------------------------------------------------
+router.get('/profile', isAuthenticated, async (req, res) => {
+    try {
+        const user = req.session.user;
+        if (user.role_name === 'Doctor') {
+            const doc = await queryOne('SELECT id FROM doctors WHERE user_id = ?', [user.id]);
+            if (doc) return res.redirect(`/doctors/view/${doc.id}`);
+        } else {
+            // All other roles mapped via email to HR staff profile
+            const staff = await queryOne('SELECT id FROM staff WHERE email = ?', [user.email]);
+            if (staff) return res.redirect(`/staff/view/${staff.id}`);
+        }
+        // Fallback for pure admin users who don't have physical profiles
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error('Profile redirect error:', err);
+        res.redirect('/dashboard');
+    }
+});
+
+// -------------------------------------------------
 // GET /auth/change-password — Show change password form
 // -------------------------------------------------
 router.get('/change-password', isAuthenticated, (req, res) => {

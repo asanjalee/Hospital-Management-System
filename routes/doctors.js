@@ -329,7 +329,7 @@ router.get('/view/:id', async (req, res) => {
 // -------------------------------------------------
 // GET /doctors/edit/:id — Show Edit Doctor Form
 // -------------------------------------------------
-router.get('/edit/:id', async (req, res) => {
+router.get('/edit/:id', authorize('Administrator'), async (req, res) => {
     const docId = req.params.id;
 
     try {
@@ -365,7 +365,7 @@ router.get('/edit/:id', async (req, res) => {
 // -------------------------------------------------
 // POST /doctors/edit/:id — Update Doctor Profile
 // -------------------------------------------------
-router.post('/edit/:id', [
+router.post('/edit/:id', authorize('Administrator'), [
     body('full_name').trim().notEmpty().withMessage('Full Name is required'),
     body('email').trim().notEmpty().withMessage('Email address is required').isEmail().withMessage('Invalid email address'),
     body('department_id').notEmpty().withMessage('Department assignment is required'),
