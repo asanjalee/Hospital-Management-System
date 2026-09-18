@@ -68,9 +68,9 @@ router.get('/', async (req, res) => {
 
         const stats = {
             totalCount: (await queryOne('SELECT COUNT(*) as cnt FROM billing'))?.cnt || 0,
-            totalRevenue: (await queryOne('SELECT SUM(net_amount) as total FROM billing'))?.total || 0,
-            paidRevenue: (await queryOne('SELECT SUM(paid_amount) as total FROM billing'))?.total || 0,
-            unpaidAmount: (await queryOne('SELECT SUM(net_amount - paid_amount) as total FROM billing WHERE payment_status != "Paid"'))?.total || 0
+            totalRevenue: (await queryOne('SELECT SUM(net_amount - COALESCE(refund_amount, 0)) as total FROM billing'))?.total || 0,
+            paidRevenue: (await queryOne('SELECT SUM(paid_amount - COALESCE(refund_amount, 0)) as total FROM billing'))?.total || 0,
+            unpaidAmount: (await queryOne('SELECT SUM((net_amount) - (paid_amount)) as total FROM billing WHERE payment_status NOT IN ("Paid", "Refunded")'))?.total || 0
         };
 
         res.render('billing/index', {
@@ -345,6 +345,49 @@ router.post('/payment/:id', async (req, res) => {
         console.error('Record payment error:', err);
         req.session.errorMessage = 'Failed to record payment.';
         res.redirect(`/billing/invoice/${invId}`);
+    }
+});
+
+
+// Process Refund
+router.post('/:id/refund', isAuthenticated, authorize('Administrator', 'Accountant'), async (req, res) => {
+    try {
+        const billingId = req.params.id;
+        const { refund_amount, refund_reason } = req.body;
+        
+        const invoice = await queryOne('SELECT * FROM billing WHERE id = ?', [billingId]);
+        if (!invoice) throw new Error('Invoice not found');
+        
+        const rAmount = parseFloat(refund_amount);
+        if (rAmount <= 0) throw new Error('Refund amount must be greater than zero');
+        if (rAmount > parseFloat(invoice.paid_amount) - parseFloat(invoice.refund_amount || 0)) {
+            throw new Error('Refund amount cannot exceed total paid amount minus existing refunds');
+        }
+        
+        const totalRefunded = parseFloat(invoice.refund_amount || 0) + rAmount;
+        let newStatus = invoice.payment_status;
+        
+        if (totalRefunded >= invoice.paid_amount) {
+            newStatus = 'Refunded';
+        }
+        
+        await execute(
+            'UPDATE billing SET refund_amount = ?, refund_reason = ?, payment_status = ? WHERE id = ?',
+            [totalRefunded, refund_reason || invoice.refund_reason, newStatus, billingId]
+        );
+        
+        // Log Audit
+        await execute(
+            'INSERT INTO audit_logs (user_id, action, module, details) VALUES (?, ?, ?, ?)',
+            [req.session.user.id, 'REFUND_INVOICE', 'Billing', `Processed refund of Rs ${rAmount} for Invoice #${invoice.invoice_number}`]
+        );
+        
+        req.session.successMessage = 'Refund processed successfully.';
+        res.redirect(`/billing/invoice/${billingId}`);
+    } catch (e) {
+        console.error(e);
+        req.session.errorMessage = e.message || 'Failed to process refund.';
+        res.redirect(`/billing/invoice/${req.params.id}`);
     }
 });
 

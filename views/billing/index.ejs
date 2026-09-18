@@ -149,10 +149,20 @@
                                         <div class="small text-dark fw-semibold"><i class="bi bi-calendar3 me-1 text-primary"></i><%= inv.invoice_date %></div>
                                     </td>
                                     <td>
-                                        <span class="fw-bold text-dark">LKR <%= Number(inv.net_amount || 0).toFixed(2) %></span>
+                                        <% if(inv.refund_amount > 0) { %>
+                                            <div class="fw-bold text-dark">LKR <%= Number((inv.net_amount || 0) - inv.refund_amount).toFixed(2) %></div>
+                                            <small class="text-warning" style="font-size: 0.75rem;">(Orig: <%= Number(inv.net_amount||0).toFixed(0) %>)</small>
+                                        <% } else { %>
+                                            <span class="fw-bold text-dark">LKR <%= Number(inv.net_amount || 0).toFixed(2) %></span>
+                                        <% } %>
                                     </td>
                                     <td>
-                                        <span class="fw-bold text-success">LKR <%= Number(inv.paid_amount || 0).toFixed(2) %></span>
+                                        <% if(inv.refund_amount > 0) { %>
+                                            <div class="fw-bold text-success">LKR <%= Number((inv.paid_amount || 0) - inv.refund_amount).toFixed(2) %></div>
+                                            <small class="text-danger" style="font-size: 0.75rem;">Refunded: <%= Number(inv.refund_amount).toFixed(0) %></small>
+                                        <% } else { %>
+                                            <span class="fw-bold text-success">LKR <%= Number(inv.paid_amount || 0).toFixed(2) %></span>
+                                        <% } %>
                                     </td>
                                     <td>
                                         <span class="badge bg-light text-dark border px-2 py-1"><%= inv.payment_method || 'Unspecified' %></span>
