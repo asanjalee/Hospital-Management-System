@@ -3,6 +3,7 @@
 // =====================================================
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db');
 const { isAuthenticated, authorize } = require('../middleware/auth');
@@ -202,7 +203,7 @@ router.post('/add', authorize('Administrator'), [
 
     const {
         employee_code, first_name, last_name, email, phone, nic_number,
-        role_id, department_id, designation, joining_date, salary, employment_status
+        role_id, department_id, designation, joining_date, salary, employment_status, provision_login
     } = req.body;
 
     try {
@@ -230,7 +231,29 @@ router.post('/add', authorize('Administrator'), [
 
         await auditLog(req.session.user.id, 'STAFF_REGISTERED', 'staff', result.lastInsertRowid, `Registered staff member ${first_name} ${last_name} (${code}) as ${designation}`, req.ip);
 
-        req.session.successMessage = `Staff member ${first_name} ${last_name} (${code}) registered successfully!`;
+        let loginMessage = '';
+        if (provision_login === 'yes') {
+            const tempPassword = 'Hosp@' + Math.floor(1000 + Math.random() * 9000);
+            const hashedPassword = await bcrypt.hash(tempPassword, 10);
+            
+            await execute(`
+                INSERT INTO users (username, full_name, email, phone, password_hash, role_id, department_id, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+            `, [
+                email.trim().toLowerCase().split('@')[0],
+                `${first_name.trim()} ${last_name.trim()}`,
+                email.trim().toLowerCase(),
+                phone ? phone.trim() : null,
+                hashedPassword,
+                role_id,
+                department_id ? department_id : null
+            ]);
+            
+            loginMessage = ` System login provisioned! Username: ${email.trim().toLowerCase().split('@')[0]} (Temp Password: ${tempPassword})`;
+            await auditLog(req.session.user.id, 'USER_CREATED', 'users', null, `Auto-provisioned system access for ${email}`, req.ip);
+        }
+
+        req.session.successMessage = `Staff member ${first_name} ${last_name} (${code}) registered successfully!${loginMessage}`;
         res.redirect(`/staff/view/${result.lastInsertRowid}`);
 
     } catch (err) {
@@ -273,12 +296,23 @@ router.get('/view/:id', async (req, res) => {
 
     try {
         const staff = await queryOne(`
-            SELECT s.*, r.role_name, d.department_name
+            SELECT s.*, r.role_name, d.department_name,
+                   u.id AS system_user_id, u.username AS system_username, u.email AS system_email, u.is_active AS system_is_active
             FROM staff s
             JOIN roles r ON s.role_id = r.id
             LEFT JOIN departments d ON s.department_id = d.id
+            LEFT JOIN users u ON LOWER(TRIM(s.email)) = LOWER(TRIM(u.email))
             WHERE s.id = ? OR s.employee_code = ?
         `, [staffId, staffId]);
+
+        if (staff && staff.system_user_id) {
+            staff.system_user = {
+                id: staff.system_user_id,
+                username: staff.system_username,
+                email: staff.system_email,
+                is_active: staff.system_is_active
+            };
+        }
 
         if (!staff) {
             req.session.errorMessage = 'Staff member record not found.';
