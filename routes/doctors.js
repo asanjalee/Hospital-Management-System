@@ -6,7 +6,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const { queryAll, queryOne, execute, getSLTimestamp } = require('../database/db');
-const { isAuthenticated, authorize } = require('../middleware/auth');
+const { isAuthenticated, authorize, adminOnly } = require('../middleware/auth');
 
 // Audit log helper (using Sri Lanka Standard Time)
 async function auditLog(userId, action, entity, entityId, details, ip) {
@@ -94,7 +94,7 @@ router.get('/', async (req, res) => {
 // -------------------------------------------------
 // GET /doctors/add — Show Add Doctor Form
 // -------------------------------------------------
-router.get('/add', async (req, res) => {
+router.get('/add', adminOnly, async (req, res) => {
     try {
         const departments = await queryAll('SELECT * FROM departments WHERE is_active = 1 ORDER BY department_name ASC') || [];
         res.render('doctors/add', {
@@ -114,7 +114,7 @@ router.get('/add', async (req, res) => {
 // -------------------------------------------------
 // POST /doctors/add — Register Doctor Account & Profile
 // -------------------------------------------------
-router.post('/add', [
+router.post('/add', adminOnly, [
     body('full_name').trim().notEmpty().withMessage('Full Name is required'),
     body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
     body('email').trim().notEmpty().withMessage('Email address is required').isEmail().withMessage('Invalid email address'),
@@ -510,7 +510,7 @@ router.post('/edit/:id', authorize('Administrator'), [
 // -------------------------------------------------
 // POST /doctors/toggle-availability/:id — Toggle Doctor Status
 // -------------------------------------------------
-router.post('/toggle-availability/:id', async (req, res) => {
+router.post('/toggle-availability/:id', adminOnly, async (req, res) => {
     const docId = req.params.id;
 
     try {
@@ -541,7 +541,7 @@ router.post('/toggle-availability/:id', async (req, res) => {
 // -------------------------------------------------
 // POST /doctors/delete/:id — Hard Delete Doctor
 // -------------------------------------------------
-router.post('/delete/:id', async (req, res) => {
+router.post('/delete/:id', adminOnly, async (req, res) => {
     const docId = req.params.id;
 
     try {
@@ -572,6 +572,38 @@ router.post('/delete/:id', async (req, res) => {
         console.error('Delete doctor error:', err);
         req.session.errorMessage = 'An error occurred while deleting the doctor.';
         res.redirect('/doctors');
+    }
+});
+
+// -------------------------------------------------
+// POST /doctors/reset-password/:id — Admin Forced Password Reset
+// -------------------------------------------------
+router.post('/reset-password/:id', adminOnly, async (req, res) => {
+    const docId = req.params.id;
+
+    try {
+        const doc = await queryOne('SELECT d.id, d.user_id, u.full_name FROM doctors d JOIN users u ON d.user_id = u.id WHERE d.id = ?', [docId]);
+        if (!doc) {
+            req.session.errorMessage = 'Doctor member not found.';
+            return res.redirect('/doctors');
+        }
+
+        // Generate temporary secure password
+        const tempPassword = 'Hosp@' + Math.floor(1000 + Math.random() * 9000);
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+        await execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, doc.user_id]);
+        
+        await auditLog(req.session.user.id, 'PASSWORD_RESET_FORCED', 'users', doc.user_id, `Force reset password for ${doc.full_name}`, req.ip);
+
+        // Intentionally storing temporary string in success payload to print to Administrator screen
+        req.session.successMessage = `Account Recovery Successful! The temporary password for ${doc.full_name} is: ${tempPassword}`;
+        res.redirect(`/doctors/view/${docId}`);
+
+    } catch (err) {
+        console.error('Doctor password reset error:', err);
+        req.session.errorMessage = 'An error occurred while resetting the password.';
+        res.redirect(`/doctors/view/${docId}`);
     }
 });
 

@@ -433,7 +433,7 @@ router.post('/edit/:id', [
 // -------------------------------------------------
 // POST /patients/medical-history/add — Add Visit Record
 // -------------------------------------------------
-router.post('/medical-history/add', [
+router.post('/medical-history/add', authorize('Administrator', 'Doctor', 'Nurse'), [
     body('patient_id').notEmpty().withMessage('Patient ID is required'),
     body('visit_date').notEmpty().withMessage('Visit date is required'),
     body('diagnosis').trim().notEmpty().withMessage('Diagnosis is required')
