@@ -149,9 +149,10 @@ app.get('/dashboard', isAuthenticated, async (req, res) => {
             SELECT al.*, u.full_name 
             FROM audit_logs al
             LEFT JOIN users u ON al.user_id = u.id
+            WHERE al.user_id = ?
             ORDER BY al.created_at DESC
             LIMIT 8
-        `);
+        `, [req.session.user.id]);
     } catch (e) {
         console.error('Dashboard audit logs query error:', e.message);
     }

@@ -601,4 +601,42 @@ router.post('/leave/status', authorize('Administrator'), async (req, res) => {
     }
 });
 
+// -------------------------------------------------
+// POST /staff/reset-password/:id — Admin Forced Password Reset
+// -------------------------------------------------
+router.post('/reset-password/:id', authorize('Administrator'), async (req, res) => {
+    const staffId = req.params.id;
+
+    try {
+        const staff = await queryOne('SELECT s.id, s.first_name, s.last_name, s.email FROM staff s WHERE s.id = ?', [staffId]);
+        if (!staff) {
+            req.session.errorMessage = 'Staff member not found.';
+            return res.redirect('/staff');
+        }
+
+        const userAccount = await queryOne('SELECT id FROM users WHERE email = ?', [staff.email]);
+        if (!userAccount) {
+            req.session.errorMessage = 'This staff member does not have a provisioned system login account.';
+            return res.redirect(`/staff/view/${staffId}`);
+        }
+
+        // Generate temporary secure password
+        const tempPassword = 'Hosp@' + Math.floor(1000 + Math.random() * 9000);
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+        await execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, userAccount.id]);
+        
+        await auditLog(req.session.user.id, 'PASSWORD_RESET_FORCED', 'users', userAccount.id, `Force reset password for ${staff.first_name}`, req.ip);
+
+        // Intentionally storing temporary string in success payload to print to Administrator screen
+        req.session.successMessage = `Account Recovery Successful! The temporary password for ${staff.first_name} is: ${tempPassword}`;
+        res.redirect(`/staff/view/${staffId}`);
+
+    } catch (err) {
+        console.error('Password reset error:', err);
+        req.session.errorMessage = 'An error occurred while resetting the password.';
+        res.redirect(`/staff/view/${staffId}`);
+    }
+});
+
 module.exports = router;
