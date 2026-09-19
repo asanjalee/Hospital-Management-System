@@ -230,3 +230,5 @@ process.on('SIGTERM', () => {
     closeDatabase();
     process.exit(0);
 });
+
+module.exports = app;
