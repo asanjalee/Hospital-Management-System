@@ -196,30 +196,18 @@ app.use((err, req, res, next) => {
 });
 
 // -------------------------------------------------
-// Start Server
+// Export App for Vercel (Serverless)
 // -------------------------------------------------
-async function startServer() {
-    try {
-        await initDatabase();
-        console.log('✅ Database connected');
+// Directly export the app for Vercel serverless environment
+module.exports = app;
 
-        app.listen(config.PORT, () => {
-            console.log('');
-            console.log('  🏥 ═══════════════════════════════════════');
-            console.log(`  🏥  ${config.APP_NAME}`);
-            console.log('  🏥 ═══════════════════════════════════════');
-            console.log(`  🌐  URL:  http://localhost:${config.PORT}`);
-            console.log(`  🔧  ENV:  ${config.NODE_ENV}`);
-            console.log('  🏥 ═══════════════════════════════════════');
-            console.log('');
-        });
-    } catch (err) {
-        console.error('❌ Failed to start server:', err);
-        process.exit(1);
-    }
+// Run app.listen only when running locally on a standard laptop/development environment:
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = config.PORT || 3000;
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
 }
-
-startServer();
 
 process.on('SIGINT', () => {
     closeDatabase();
