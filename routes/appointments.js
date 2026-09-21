@@ -127,10 +127,10 @@ router.get('/', async (req, res) => {
         // Overall stats
         const stats = {
             total: (await queryOne('SELECT COUNT(*) as cnt FROM appointments'))?.cnt || 0,
-            today: (await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE appointment_date = ? AND status != "Cancelled"', [todayStr]))?.cnt || 0,
-            scheduled: (await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Scheduled"'))?.cnt || 0,
-            completed: (await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Completed"'))?.cnt || 0,
-            cancelled: (await queryOne('SELECT COUNT(*) as cnt FROM appointments WHERE status = "Cancelled"'))?.cnt || 0
+            today: (await queryOne(`SELECT COUNT(*) as cnt FROM appointments WHERE appointment_date = ? AND status != 'Cancelled'`, [todayStr]))?.cnt || 0,
+            scheduled: (await queryOne(`SELECT COUNT(*) as cnt FROM appointments WHERE status = 'Scheduled'`))?.cnt || 0,
+            completed: (await queryOne(`SELECT COUNT(*) as cnt FROM appointments WHERE status = 'Completed'`))?.cnt || 0,
+            cancelled: (await queryOne(`SELECT COUNT(*) as cnt FROM appointments WHERE status = 'Cancelled'`))?.cnt || 0
         };
 
         res.render('appointments/index', {

@@ -70,7 +70,7 @@ router.get('/', async (req, res) => {
             totalCount: (await queryOne('SELECT COUNT(*) as cnt FROM billing'))?.cnt || 0,
             totalRevenue: (await queryOne('SELECT SUM(net_amount - COALESCE(refund_amount, 0)) as total FROM billing'))?.total || 0,
             paidRevenue: (await queryOne('SELECT SUM(paid_amount - COALESCE(refund_amount, 0)) as total FROM billing'))?.total || 0,
-            unpaidAmount: (await queryOne('SELECT SUM((net_amount) - (paid_amount)) as total FROM billing WHERE payment_status NOT IN ("Paid", "Refunded")'))?.total || 0
+            unpaidAmount: (await queryOne(`SELECT SUM((net_amount) - (paid_amount)) as total FROM billing WHERE payment_status NOT IN ('Paid', 'Refunded')`))?.total || 0
         };
 
         res.render('billing/index', {

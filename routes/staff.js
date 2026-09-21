@@ -104,9 +104,9 @@ router.get('/', async (req, res) => {
 
         const stats = {
             totalStaff: (await queryOne('SELECT COUNT(*) as cnt FROM staff'))?.cnt || 0,
-            activeStaff: (await queryOne('SELECT COUNT(*) as cnt FROM staff WHERE is_active = 1 AND employment_status != "Terminated"'))?.cnt || 0,
-            todayPresent: (await queryOne('SELECT COUNT(*) as cnt FROM staff_attendance WHERE attendance_date = ? AND status IN ("Present", "Late", "Half Day")', [todayStr]))?.cnt || 0,
-            pendingLeaves: (await queryOne('SELECT COUNT(*) as cnt FROM staff_leaves WHERE status = "Pending"'))?.cnt || 0
+            activeStaff: (await queryOne(`SELECT COUNT(*) as cnt FROM staff WHERE is_active = 1 AND employment_status != 'Terminated'`))?.cnt || 0,
+            todayPresent: (await queryOne(`SELECT COUNT(*) as cnt FROM staff_attendance WHERE attendance_date = ? AND status IN ('Present', 'Late', 'Half Day')`, [todayStr]))?.cnt || 0,
+            pendingLeaves: (await queryOne(`SELECT COUNT(*) as cnt FROM staff_leaves WHERE status = 'Pending'`))?.cnt || 0
         };
 
         // Fetch Role-wise Distribution (Excluding non-HR System Roles)

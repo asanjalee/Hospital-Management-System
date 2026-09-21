@@ -74,9 +74,9 @@ router.get('/', async (req, res) => {
 
         const stats = {
             total: (await queryOne('SELECT COUNT(*) as cnt FROM lab_requests'))?.cnt || 0,
-            pending: (await queryOne('SELECT COUNT(*) as cnt FROM lab_requests WHERE status = "Pending"'))?.cnt || 0,
-            inProgress: (await queryOne('SELECT COUNT(*) as cnt FROM lab_requests WHERE status = "In Progress"'))?.cnt || 0,
-            completed: (await queryOne('SELECT COUNT(*) as cnt FROM lab_requests WHERE status = "Completed"'))?.cnt || 0
+            pending: (await queryOne(`SELECT COUNT(*) as cnt FROM lab_requests WHERE status = 'Pending'`))?.cnt || 0,
+            inProgress: (await queryOne(`SELECT COUNT(*) as cnt FROM lab_requests WHERE status = 'In Progress'`))?.cnt || 0,
+            completed: (await queryOne(`SELECT COUNT(*) as cnt FROM lab_requests WHERE status = 'Completed'`))?.cnt || 0
         };
 
         res.render('laboratory/index', {

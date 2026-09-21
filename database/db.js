@@ -48,10 +48,12 @@ async function initDatabase() {
 
         console.log(`✅ Connected to MySQL database "${dbName}" at ${host}:${port}`);
         
-        // Step 2: Ensure schema migrations on existing database (අවශ්‍ය වෙනස්කම් පමණක් පරීක්ෂා කරයි)
+        // Step 2: Ensure schema migrations on existing database 
         try { await pool.query('ALTER TABLE billing ADD COLUMN refund_amount DECIMAL(10,2) DEFAULT 0.00;'); } catch (e) {}
         try { await pool.query('ALTER TABLE billing ADD COLUMN refund_reason TEXT;'); } catch (e) {}
         try { await pool.query('ALTER TABLE audit_logs ADD COLUMN module VARCHAR(50);'); } catch (e) {}
+
+        await syncSchema();
 
         return pool;
     } catch (err) {
