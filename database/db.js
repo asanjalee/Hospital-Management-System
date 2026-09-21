@@ -35,7 +35,10 @@ async function initDatabase() {
             host,
             port,
             user,
-            password
+            password,
+            ssl: {
+                rejectUnauthorized: false
+            }
         });
 
         await rootConnection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
@@ -52,7 +55,10 @@ async function initDatabase() {
             connectionLimit: 10,
             queueLimit: 0,
             multipleStatements: true,
-            dateStrings: true
+            dateStrings: true,
+            ssl: {
+                rejectUnauthorized: false
+            }
         });
 
         console.log(`✅ Connected to MySQL database "${dbName}" at ${host}:${port}`);
@@ -61,9 +67,9 @@ async function initDatabase() {
         await syncSchema();
 
         // Step 4: Ensure schema migrations on existing database
-        try { await pool.query('ALTER TABLE billing ADD COLUMN refund_amount DECIMAL(10,2) DEFAULT 0.00;'); } catch(e) {}
-        try { await pool.query('ALTER TABLE billing ADD COLUMN refund_reason TEXT;'); } catch(e) {}
-        try { await pool.query('ALTER TABLE audit_logs ADD COLUMN module VARCHAR(50);'); } catch(e) {}
+        try { await pool.query('ALTER TABLE billing ADD COLUMN refund_amount DECIMAL(10,2) DEFAULT 0.00;'); } catch (e) { }
+        try { await pool.query('ALTER TABLE billing ADD COLUMN refund_reason TEXT;'); } catch (e) { }
+        try { await pool.query('ALTER TABLE audit_logs ADD COLUMN module VARCHAR(50);'); } catch (e) { }
 
         return pool;
     } catch (err) {
