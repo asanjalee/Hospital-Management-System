@@ -59,6 +59,17 @@ app.use((req, res, next) => {
     next();
 });
 
+// Ensure database is initialized for serverless requests
+app.use(async (req, res, next) => {
+    try {
+        await initDatabase();
+        next();
+    } catch (err) {
+        console.error('Failed to initialize database on request:', err);
+        res.status(500).send('Database connection error.');
+    }
+});
+
 // -------------------------------------------------
 // Routes
 // -------------------------------------------------
