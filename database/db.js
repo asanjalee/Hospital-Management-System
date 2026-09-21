@@ -29,22 +29,7 @@ async function initDatabase() {
     const dbName = config.DB_NAME || 'hospital_db';
 
     try {
-        // Step 1: Auto-Database Creation Wrapper
-        // Connect to MySQL server without selecting DB to check/create target database
-        const rootConnection = await mysql.createConnection({
-            host,
-            port,
-            user,
-            password,
-            ssl: {
-                rejectUnauthorized: false
-            }
-        });
-
-        await rootConnection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
-        await rootConnection.end();
-
-        // Step 2: Create connection pool for hospital_db
+        // Step 1: Create connection pool for hospital_db (සෑම රික්වෙස්ට් එකකදීම ටේබල් සෑදීම ඉවත් කර ඇත)
         pool = mysql.createPool({
             host,
             port,
@@ -62,14 +47,11 @@ async function initDatabase() {
         });
 
         console.log(`✅ Connected to MySQL database "${dbName}" at ${host}:${port}`);
-
-        // Step 3: Synchronize tables and seed initial data
-        await syncSchema();
-
-        // Step 4: Ensure schema migrations on existing database
-        try { await pool.query('ALTER TABLE billing ADD COLUMN refund_amount DECIMAL(10,2) DEFAULT 0.00;'); } catch (e) { }
-        try { await pool.query('ALTER TABLE billing ADD COLUMN refund_reason TEXT;'); } catch (e) { }
-        try { await pool.query('ALTER TABLE audit_logs ADD COLUMN module VARCHAR(50);'); } catch (e) { }
+        
+        // Step 2: Ensure schema migrations on existing database (අවශ්‍ය වෙනස්කම් පමණක් පරීක්ෂා කරයි)
+        try { await pool.query('ALTER TABLE billing ADD COLUMN refund_amount DECIMAL(10,2) DEFAULT 0.00;'); } catch (e) {}
+        try { await pool.query('ALTER TABLE billing ADD COLUMN refund_reason TEXT;'); } catch (e) {}
+        try { await pool.query('ALTER TABLE audit_logs ADD COLUMN module VARCHAR(50);'); } catch (e) {}
 
         return pool;
     } catch (err) {
